@@ -9,13 +9,21 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@heroui/react": "^2.8.7",
+    "@stripe/react-stripe-js": "^5.4.1",
+    "@stripe/stripe-js": "^8.6.1",
+    "framer-motion": "^12.24.10",
+    "lucide-react": "^0.562.0",
     "next": "16.1.1",
+    "qs": "^6.14.1",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "zustand": "^5.0.9"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/qs": "^6.14.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
