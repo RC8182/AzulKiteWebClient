@@ -1,50 +1,48 @@
 'use client';
 
-import {
-    Drawer,
-    DrawerContent,
-    DrawerHeader,
-    DrawerBody,
-    DrawerFooter,
-    Button,
-    Image,
-    Divider,
-} from '@heroui/react';
 import { useCart } from '@/store/useCart';
-import { Trash2, Plus, Minus, ShoppingBag, Loader2 } from 'lucide-react';
+import { Trash2, Plus, Minus, ShoppingBag, X } from 'lucide-react';
 import { loadStripe } from '@stripe/stripe-js';
 import { createCheckoutSession } from '@/actions/checkout';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '');
 
 interface CartDrawerProps {
     isOpen: boolean;
-    onOpenChange: (isOpen: boolean) => void;
+    onClose: () => void;
 }
 
-export default function CartDrawer({ isOpen, onOpenChange }: CartDrawerProps) {
+export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
     const { items, removeItem, updateQuantity, getTotalPrice, getTotalItems } = useCart();
     const [isLoading, setIsLoading] = useState(false);
+
+    // Disable body scroll when menu is open
+    useEffect(() => {
+        if (isOpen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = 'unset';
+        }
+        return () => { document.body.style.overflow = 'unset'; };
+    }, [isOpen]);
 
     const handleCheckout = async () => {
         setIsLoading(true);
         try {
             const { sessionId, error } = await createCheckoutSession({
-                customer_email: 'test@example.com', // In a real app, get from auth or form
+                customer_email: 'test@example.com',
                 products: items.map(item => ({ id: item.id, quantity: item.quantity })),
             });
 
             if (error) throw new Error(error);
+            if (!sessionId) throw new Error('No session ID returned');
 
             const stripe = await stripePromise;
             if (!stripe) throw new Error('Stripe failed to load');
 
-            const { error: stripeError } = await stripe.redirectToCheckout({
-                sessionId,
-            });
-
-            if (stripeError) throw new Error(stripeError.message);
+            // Redirect to Stripe Checkout
+            window.location.href = `https://checkout.stripe.com/pay/${sessionId}`;
         } catch (err: any) {
             alert(err.message || 'Error al procesar el pago');
         } finally {
@@ -52,119 +50,132 @@ export default function CartDrawer({ isOpen, onOpenChange }: CartDrawerProps) {
         }
     };
 
+    if (!isOpen) return null;
+
     return (
-        <Drawer isOpen={isOpen} onOpenChange={onOpenChange} size="md">
-            <DrawerContent>
-                {(onClose) => (
-                    <>
-                        <DrawerHeader className="flex flex-col gap-1">
-                            <div className="flex items-center gap-2 text-[var(--color-primary)]">
-                                <ShoppingBag size={24} />
-                                <span className="text-2xl font-bold">Tu Carrito</span>
-                                <span className="text-sm font-normal bg-gray-100 px-2 py-1 rounded-full text-gray-600">
-                                    {getTotalItems()} ítems
-                                </span>
-                            </div>
-                        </DrawerHeader>
-                        <DrawerBody>
-                            {items.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center h-full gap-4 text-gray-500">
-                                    <ShoppingBag size={64} className="opacity-20" />
-                                    <p className="text-xl">Tu carrito está vacío</p>
-                                    <Button color="primary" variant="flat" onPress={onClose}>
-                                        Seguir Comprando
-                                    </Button>
-                                </div>
-                            ) : (
-                                <div className="flex flex-col gap-6">
-                                    {items.map((item) => (
-                                        <div key={item.id} className="flex gap-4 group">
-                                            <div className="w-24 h-24 flex-shrink-0 bg-gray-100 rounded-xl overflow-hidden">
-                                                <Image
-                                                    src={item.image}
-                                                    alt={item.name}
-                                                    className="w-full h-full object-cover"
-                                                />
-                                            </div>
-                                            <div className="flex-1 flex flex-col justify-between py-1">
-                                                <div>
-                                                    <div className="flex justify-between items-start">
-                                                        <h4 className="font-bold text-lg line-clamp-1">{item.name}</h4>
-                                                        <Button
-                                                            isIconOnly
-                                                            size="sm"
-                                                            variant="light"
-                                                            color="danger"
-                                                            className="opacity-0 group-hover:opacity-100 transition-opacity"
-                                                            onPress={() => removeItem(item.id)}
-                                                        >
-                                                            <Trash2 size={16} />
-                                                        </Button>
-                                                    </div>
-                                                    <p className="text-sm text-gray-500">{item.category}</p>
-                                                </div>
-                                                <div className="flex justify-between items-center mt-2">
-                                                    <div className="flex items-center gap-2 bg-gray-50 rounded-full border border-gray-100">
-                                                        <Button
-                                                            isIconOnly
-                                                            size="sm"
-                                                            variant="light"
-                                                            radius="full"
-                                                            onPress={() => updateQuantity(item.id, item.quantity - 1)}
-                                                        >
-                                                            <Minus size={14} />
-                                                        </Button>
-                                                        <span className="w-8 text-center font-bold text-sm">
-                                                            {item.quantity}
-                                                        </span>
-                                                        <Button
-                                                            isIconOnly
-                                                            size="sm"
-                                                            variant="light"
-                                                            radius="full"
-                                                            onPress={() => updateQuantity(item.id, item.quantity + 1)}
-                                                        >
-                                                            <Plus size={14} />
-                                                        </Button>
-                                                    </div>
-                                                    <p className="font-bold text-[var(--color-primary)]">
-                                                        {item.price * item.quantity}€
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </DrawerBody>
-                        <DrawerFooter className="flex flex-col gap-4 border-t border-gray-100 pt-6">
-                            <div className="w-full space-y-2">
-                                <div className="flex justify-between text-gray-500">
-                                    <span>Subtotal</span>
-                                    <span>{getTotalPrice()}€</span>
-                                </div>
-                                <div className="flex justify-between text-2xl font-bold text-[var(--color-primary)]">
-                                    <span>Total</span>
-                                    <span>{getTotalPrice()}€</span>
-                                </div>
-                            </div>
-                            <Button
-                                className="w-full bg-[var(--color-accent)] text-white font-bold h-14 text-lg"
-                                radius="full"
-                                isDisabled={items.length === 0 || isLoading}
-                                isLoading={isLoading}
-                                onPress={handleCheckout}
-                                startContent={!isLoading && <ShoppingBag size={20} />}
+        <div className="fixed inset-0 z-[100] flex justify-end">
+            {/* Backdrop */}
+            <div
+                className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
+                onClick={onClose}
+            ></div>
+
+            {/* Drawer Content */}
+            <div className={`relative w-full max-w-[400px] h-full bg-white shadow-2xl flex flex-col transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+                {/* Header */}
+                <div className="flex items-center justify-between border-b border-gray-100 py-4 px-6 h-16 shrink-0">
+                    <div className="flex items-center gap-2 text-[#0051B5]">
+                        <ShoppingBag size={22} strokeWidth={2.5} />
+                        <span className="text-xl font-black italic tracking-tighter uppercase">Tu Carrito</span>
+                        <span className="text-[10px] bg-gray-100 px-2 py-0.5 rounded-full text-gray-400 font-bold ml-1">
+                            {getTotalItems()} ítems
+                        </span>
+                    </div>
+                    <button
+                        onClick={onClose}
+                        className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400"
+                    >
+                        <X size={20} />
+                    </button>
+                </div>
+
+                {/* Body */}
+                <div className="flex-1 overflow-y-auto p-6">
+                    {items.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-full gap-5 text-gray-400">
+                            <ShoppingBag size={64} strokeWidth={1} className="opacity-20 translate-y-[-20px]" />
+                            <p className="text-sm font-bold tracking-widest uppercase">Tu carrito está vacío</p>
+                            <button
+                                onClick={onClose}
+                                className="px-6 py-2.5 bg-[#0051B5] text-white text-[10px] font-bold tracking-widest uppercase hover:bg-[#003B95] transition-colors"
                             >
-                                {isLoading ? 'Procesando...' : 'Pagar Ahora'}
-                            </Button>
-                            <p className="text-center text-xs text-gray-400">
-                                Gastos de envío e impuestos calculados al procesar el pago.
-                            </p>
-                        </DrawerFooter>
-                    </>
-                )}
-            </DrawerContent>
-        </Drawer>
+                                Seguir Comprando
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col gap-8">
+                            {items.map((item) => (
+                                <div key={item.id} className="flex gap-4 group">
+                                    <div className="w-20 h-20 flex-shrink-0 bg-gray-50 border border-gray-100 rounded-sm overflow-hidden">
+                                        <img
+                                            src={item.image}
+                                            alt={item.name}
+                                            className="w-full h-full object-contain p-2"
+                                        />
+                                    </div>
+                                    <div className="flex-1 flex flex-col justify-between py-0.5">
+                                        <div>
+                                            <div className="flex justify-between items-start">
+                                                <h4 className="font-black text-[11px] uppercase tracking-wider text-[#0051B5] line-clamp-2">{item.name}</h4>
+                                                <button
+                                                    className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-red-500 p-1"
+                                                    onClick={() => removeItem(item.id)}
+                                                >
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            </div>
+                                            <p className="text-[10px] font-bold text-gray-300 uppercase tracking-widest mt-1">{item.category}</p>
+                                        </div>
+                                        <div className="flex justify-between items-center mt-3">
+                                            <div className="flex items-center border border-gray-100 rounded-none bg-white">
+                                                <button
+                                                    className="p-1 px-2.5 text-gray-400 hover:text-[#0051B5] transition-colors"
+                                                    onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                                                >
+                                                    <Minus size={12} />
+                                                </button>
+                                                <span className="w-8 text-center font-bold text-[11px] text-[#0051B5]">
+                                                    {item.quantity}
+                                                </span>
+                                                <button
+                                                    className="p-1 px-2.5 text-gray-400 hover:text-[#0051B5] transition-colors"
+                                                    onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                                                >
+                                                    <Plus size={12} />
+                                                </button>
+                                            </div>
+                                            <p className="font-black text-sm text-[var(--color-accent)] italic">
+                                                {item.price * item.quantity}€
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Footer */}
+                <div className="border-t border-gray-100 p-6 bg-gray-50 mt-auto">
+                    <div className="w-full space-y-3 mb-6">
+                        <div className="flex justify-between text-[11px] font-bold text-gray-400 uppercase tracking-widest">
+                            <span>Subtotal</span>
+                            <span>{getTotalPrice()}€</span>
+                        </div>
+                        <div className="flex justify-between text-lg font-black italic text-[#0051B5] uppercase">
+                            <span>Total</span>
+                            <span className="text-[var(--color-accent)]">{getTotalPrice()}€</span>
+                        </div>
+                    </div>
+                    <button
+                        className="w-full bg-[var(--color-accent)] text-white font-black tracking-widest py-4 text-xs uppercase hover:bg-[#003B95] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 italic"
+                        disabled={items.length === 0 || isLoading}
+                        onClick={handleCheckout}
+                    >
+                        {isLoading ? (
+                            <span className="animate-pulse">Procesando...</span>
+                        ) : (
+                            <>
+                                <ShoppingBag size={16} />
+                                Pagar Ahora
+                            </>
+                        )}
+                    </button>
+                    <p className="text-center text-[9px] font-medium text-gray-300 uppercase tracking-widest mt-4">
+                        IVA incluido • Envío gratis en pedidos a partir de 100€
+                    </p>
+                </div>
+            </div>
+        </div>
     );
 }
