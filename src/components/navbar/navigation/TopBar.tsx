@@ -3,12 +3,21 @@
 import { Truck, Wind, ChevronDown } from 'lucide-react';
 import { useEffect, useState, useRef } from 'react';
 import { motion } from 'framer-motion';
+import { dictionary } from '../db';
+import { usePathname, useRouter } from 'next/navigation';
 
-export default function TopBar() {
+interface TopBarProps {
+    lang: string;
+}
+
+export default function TopBar({ lang }: TopBarProps) {
     const [windSpeed, setWindSpeed] = useState<number | null>(null);
-    const [lang, setLang] = useState('ES');
     const [isLangOpen, setIsLangOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
+    const router = useRouter();
+    const pathname = usePathname();
+
+    const t = dictionary[lang as keyof typeof dictionary]?.topBar || dictionary['es'].topBar;
 
     // Simulation of live wind data fetching
     useEffect(() => {
@@ -33,17 +42,24 @@ export default function TopBar() {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const bannerText = "PRECIOS SIN IVA | TRANSPORTE E IMPUESTOS INCLUIDOS";
+    const handleLanguageChange = (newLang: string) => {
+        if (!pathname) return;
+        const segments = pathname.split('/');
+        segments[1] = newLang; // Assuming route is /[lang]/...
+        const newPath = segments.join('/');
+        router.push(newPath);
+        setIsLangOpen(false);
+    };
 
     return (
-        <div className="w-full bg-[#003B95] text-white py-1 overflow-hidden border-b border-white/5 relative z-[60]">
+        <div className="w-full bg-[#003B95] text-white py-1 border-b border-white/5 relative z-[60]">
             <div className="max-w-[1440px] mx-auto px-4 flex items-center justify-between gap-4">
 
                 {/* Left: Live Wind */}
                 <div className="flex items-center gap-1.5 bg-white/5 px-2 py-0.5 rounded-full border border-white/10 whitespace-nowrap shrink-0">
                     <Wind size={12} className="text-[var(--color-accent)] animate-pulse" />
-                    <span className="uppercase tracking-tighter text-[9px] hidden sm:inline opacity-70">Viento:</span>
-                    <span className="font-bold text-[9px] md:text-[10px]">El Médano</span>
+                    <span className="uppercase tracking-tighter text-[9px] hidden sm:inline opacity-70">{t.wind}</span>
+                    <span className="font-bold text-[9px] md:text-[10px]">{t.location}</span>
                     <span className="text-[var(--color-accent)] font-black text-[10px] md:text-[11px]">
                         {windSpeed !== null ? `${windSpeed} kts` : '-- kts'}
                     </span>
@@ -63,7 +79,7 @@ export default function TopBar() {
                         {[1, 2].map((i) => (
                             <div key={i} className="flex items-center gap-2 text-[9px] md:text-[10px] font-bold tracking-tight opacity-90">
                                 <Truck size={12} className="text-[var(--color-accent)] shrink-0" />
-                                <span>{bannerText}</span>
+                                <span>{t.banner}</span>
                             </div>
                         ))}
                     </motion.div>
@@ -75,20 +91,17 @@ export default function TopBar() {
                         onClick={() => setIsLangOpen(!isLangOpen)}
                         className="flex items-center gap-1.5 px-2 py-0.5 hover:bg-white/10 transition-colors uppercase font-bold text-[10px] tracking-widest"
                     >
-                        {lang}
+                        {lang.toUpperCase()}
                         <ChevronDown size={10} className={`opacity-60 transition-transform ${isLangOpen ? 'rotate-180' : ''}`} />
                     </button>
 
                     {isLangOpen && (
                         <div className="absolute right-0 top-full mt-1 bg-[#003B95] border border-white/10 shadow-xl min-w-[70px] flex flex-col py-1 overflow-hidden">
-                            {['ES', 'EN', 'IT'].map((l) => (
+                            {['es', 'en', 'it'].map((l) => (
                                 <button
                                     key={l}
-                                    onClick={() => {
-                                        setLang(l);
-                                        setIsLangOpen(false);
-                                    }}
-                                    className={`w-full px-3 py-2 text-left text-[10px] font-bold hover:bg-white/10 transition-colors ${lang === l ? 'text-[var(--color-accent)]' : 'text-white'}`}
+                                    onClick={() => handleLanguageChange(l)}
+                                    className={`w-full px-3 py-2 text-left text-[10px] font-bold hover:bg-white/10 transition-colors uppercase ${lang === l ? 'text-[var(--color-accent)]' : 'text-white'}`}
                                 >
                                     {l}
                                 </button>

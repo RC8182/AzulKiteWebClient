@@ -1,53 +1,61 @@
 'use client';
 
-import { ChevronRight, ChevronLeft, Wind, Plus, Minus, X } from 'lucide-react';
+import { ChevronLeft, Wind, Plus, Minus } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { dictionary } from '../db';
 
 interface MobileDrawerProps {
     isOpen: boolean;
     onClose: () => void;
+    lang: string;
 }
 
-const navigation = [
-    {
-        name: 'KITESURF',
-        href: '/category/kitesurf',
-        subcategories: [
-            { name: 'Cometas', href: '/category/kitesurf/cometas' },
-            { name: 'Tablas', href: '/category/kitesurf/tablas' },
-            { name: 'Accesorios Kite', href: '/category/kitesurf/accesorios' },
-            { name: 'Outlet Kite', href: '/category/kitesurf/outlet' },
-        ]
-    },
-    {
-        name: 'WING & FOIL',
-        href: '/category/wing-foil',
-        subcategories: [
-            { name: 'Hydrofoil', href: '/category/wing-foil/hydrofoil' },
-            { name: 'Alas (Wings)', href: '/category/wing-foil/alas' },
-            { name: 'Tablas (Wing)', href: '/category/wing-foil/tablas' },
-            { name: 'Componentes', href: '/category/wing-foil/componentes' },
-        ]
-    },
-    {
-        name: 'ACCESORIOS',
-        href: '/category/accesorios',
-        subcategories: [
-            { name: 'Todos los Accesorios', href: '/category/accesorios' },
-            { name: 'Nueva Temporada', href: '/category/accesorios/nueva-temporada' },
-            { name: 'Outlet', href: '/category/accesorios/outlet' },
-            { name: 'Usado & Test', href: '/category/accesorios/usado' },
-        ]
-    },
-    {
-        name: 'HOT DEALS',
-        href: '/sale',
-        highlight: true
-    }
-];
-
-export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
+export default function MobileDrawer({ isOpen, onClose, lang }: MobileDrawerProps) {
     const [openMenus, setOpenMenus] = useState<string[]>([]);
+
+    // Get translations
+    const t = dictionary[lang as keyof typeof dictionary] || dictionary['es'];
+    const nav = t.nav;
+    const md = t.mobileDrawer;
+
+    // Construct localized navigation
+    const navigation = [
+        {
+            name: nav.kitesurf.name,
+            href: `/${lang}/category/kitesurf`,
+            subcategories: [
+                { name: nav.kitesurf.subs.cometas, href: `/${lang}/category/kitesurf/cometas` },
+                { name: nav.kitesurf.subs.tablas, href: `/${lang}/category/kitesurf/tablas` },
+                { name: nav.kitesurf.subs.accesorios, href: `/${lang}/category/kitesurf/accesorios` },
+                { name: nav.kitesurf.subs.outlet, href: `/${lang}/category/kitesurf/outlet` },
+            ]
+        },
+        {
+            name: nav.wingfoil.name,
+            href: `/${lang}/category/wing-foil`,
+            subcategories: [
+                { name: nav.wingfoil.subs.hydrofoil, href: `/${lang}/category/wing-foil/hydrofoil` },
+                { name: nav.wingfoil.subs.alas, href: `/${lang}/category/wing-foil/alas` },
+                { name: nav.wingfoil.subs.tablas, href: `/${lang}/category/wing-foil/tablas` },
+                { name: nav.wingfoil.subs.componentes, href: `/${lang}/category/wing-foil/componentes` },
+            ]
+        },
+        {
+            name: nav.accesorios.name,
+            href: `/${lang}/category/accesorios`,
+            subcategories: [
+                { name: nav.accesorios.subs.todos, href: `/${lang}/category/accesorios` },
+                { name: nav.accesorios.subs.nueva, href: `/${lang}/category/accesorios/nueva-temporada` },
+                { name: nav.accesorios.subs.outlet, href: `/${lang}/category/accesorios/outlet` },
+                { name: nav.accesorios.subs.usado, href: `/${lang}/category/accesorios/usado` },
+            ]
+        },
+        {
+            name: nav.deals,
+            href: `/${lang}/sale`,
+            highlight: true
+        }
+    ];
 
     // Disable body scroll when menu is open
     useEffect(() => {
@@ -85,7 +93,7 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
                         className="text-white font-bold text-xs flex items-center gap-1 min-w-0 px-2 h-8"
                     >
                         <ChevronLeft size={16} />
-                        CERRAR
+                        {md.close}
                     </button>
                 </div>
 
@@ -143,14 +151,14 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
                         <div className="flex items-center gap-3 border-l-4 border-[var(--color-accent)] pl-4 py-3 bg-gray-50 rounded-r-lg">
                             <Wind size={20} className="text-[var(--color-accent)] shrink-0" />
                             <div className="flex flex-col">
-                                <span className="text-[8px] text-gray-400 font-bold uppercase tracking-widest leading-none">Viento El Médano</span>
+                                <span className="text-[8px] text-gray-400 font-bold uppercase tracking-widest leading-none">{t.topBar.wind} {t.topBar.location}</span>
                                 <span className="text-[#0051B5] font-black italic text-base leading-tight uppercase">23 KTS</span>
                             </div>
                         </div>
 
                         <div className="flex flex-col gap-3 mt-2">
-                            <a href="/blog" className="text-gray-400 font-bold tracking-widest text-[10px] uppercase hover:text-[#0051B5]" onClick={onClose}>BLOG DE AZULKITE</a>
-                            <a href="/help" className="text-gray-400 font-bold tracking-widest text-[10px] uppercase hover:text-[#0051B5]" onClick={onClose}>Centro de Ayuda</a>
+                            <a href={`/${lang}/blog`} className="text-gray-400 font-bold tracking-widest text-[10px] uppercase hover:text-[#0051B5]" onClick={onClose}>{md.blog}</a>
+                            <a href={`/${lang}/help`} className="text-gray-400 font-bold tracking-widest text-[10px] uppercase hover:text-[#0051B5]" onClick={onClose}>{md.help}</a>
                         </div>
                     </div>
                 </div>

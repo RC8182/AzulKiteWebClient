@@ -3,16 +3,20 @@
 import { Search, User, ShoppingCart, Menu, X } from 'lucide-react';
 import { useCart } from '@/store/useCart';
 import { useEffect, useState } from 'react';
+import { dictionary } from '../db';
 
 interface MainHeaderProps {
     onOpenMenu?: () => void;
     onOpenCart?: () => void;
+    lang: string;
 }
 
-export default function MainHeader({ onOpenMenu, onOpenCart }: MainHeaderProps) {
+export default function MainHeader({ onOpenMenu, onOpenCart, lang }: MainHeaderProps) {
     const getTotalItems = useCart((state) => state.getTotalItems);
     const [mounted, setMounted] = useState(false);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
+
+    const t = dictionary[lang as keyof typeof dictionary]?.header || dictionary['es'].header;
 
     useEffect(() => {
         setMounted(true);
@@ -44,7 +48,7 @@ export default function MainHeader({ onOpenMenu, onOpenCart }: MainHeaderProps) 
 
                         {/* Logo Section */}
                         <div className="flex-1 md:flex-none flex justify-center md:justify-start overflow-visible">
-                            <a href="/" className="flex items-center group">
+                            <a href={`/${lang}`} className="flex items-center group">
                                 <span className="text-[14px] xs:text-[18px] sm:text-[20px] md:text-[24px] font-black italic tracking-tighter uppercase leading-none whitespace-nowrap pr-4 transition-transform group-hover:scale-[1.02]">
                                     AZUL<span className="text-[var(--color-accent)]">KITEBOARDING</span>
                                 </span>
@@ -57,7 +61,7 @@ export default function MainHeader({ onOpenMenu, onOpenCart }: MainHeaderProps) 
                             <Search size={18} className="absolute left-0 text-white opacity-70" />
                             <input
                                 autoFocus
-                                placeholder="Buscar..."
+                                placeholder={t.searchPlaceholderMobile}
                                 className="w-full bg-transparent border-b border-white outline-none py-1 pl-6 text-sm italic text-white placeholder:text-white/50"
                                 onBlur={(e) => {
                                     if (!e.target.value) setIsSearchOpen(false);
@@ -78,7 +82,7 @@ export default function MainHeader({ onOpenMenu, onOpenCart }: MainHeaderProps) 
                     <div className="relative w-full flex items-center">
                         <Search size={18} className="absolute left-0 text-white opacity-70" />
                         <input
-                            placeholder="¿Qué estás buscando?"
+                            placeholder={t.searchPlaceholderDesktop}
                             className="w-full bg-transparent border-b border-white outline-none py-1.5 pl-7 text-sm italic text-white placeholder:text-white/50 focus:border-white transition-colors"
                         />
                     </div>
@@ -86,9 +90,9 @@ export default function MainHeader({ onOpenMenu, onOpenCart }: MainHeaderProps) 
 
                 {/* Right: Actions */}
                 <div className="flex items-center gap-1 md:gap-4 shrink-0">
-                    <a href="/account" className="flex flex-col items-center gap-0.5 text-white hover:opacity-80 p-1 group">
+                    <a href={`/${lang}/account`} className="flex flex-col items-center gap-0.5 text-white hover:opacity-80 p-1 group">
                         <User size={22} strokeWidth={1.5} className="group-hover:scale-110 transition-transform" />
-                        <span className="hidden md:block text-[9px] font-bold uppercase tracking-widest leading-none">Cuenta</span>
+                        <span className="hidden md:block text-[9px] font-bold uppercase tracking-widest leading-none">{t.account}</span>
                     </a>
 
                     <div className="relative group cursor-pointer p-1" onClick={onOpenCart}>
@@ -102,7 +106,7 @@ export default function MainHeader({ onOpenMenu, onOpenCart }: MainHeaderProps) 
                                 )}
                             </div>
                             <span className="hidden md:block text-[9px] font-bold uppercase tracking-widest leading-none">
-                                {totalItems === 0 ? 'Carrito' : `${totalItems}`}
+                                {totalItems === 0 ? t.cart : `${totalItems}`}
                             </span>
                         </div>
                     </div>

@@ -1,47 +1,53 @@
 'use client';
 
 import { ChevronDown } from 'lucide-react';
-import { useState } from 'react';
+import { dictionary } from '../db';
 
-const navigation = [
-    {
-        name: 'KITESURF',
-        href: '/category/kitesurf',
-        subcategories: [
-            { name: 'Cometas', href: '/category/kitesurf/cometas' },
-            { name: 'Tablas', href: '/category/kitesurf/tablas' },
-            { name: 'Accesorios Kite', href: '/category/kitesurf/accesorios' },
-            { name: 'Outlet Kite', href: '/category/kitesurf/outlet' },
-        ]
-    },
-    {
-        name: 'WING & FOIL',
-        href: '/category/wing-foil',
-        subcategories: [
-            { name: 'Hydrofoil', href: '/category/wing-foil/hydrofoil' },
-            { name: 'Alas (Wings)', href: '/category/wing-foil/alas' },
-            { name: 'Tablas (Wing)', href: '/category/wing-foil/tablas' },
-            { name: 'Componentes', href: '/category/wing-foil/componentes' },
-        ]
-    },
-    {
-        name: 'ACCESORIOS',
-        href: '/category/accesorios',
-        subcategories: [
-            { name: 'Todos los Accesorios', href: '/category/accesorios' },
-            { name: 'Nueva Temporada', href: '/category/accesorios/nueva-temporada' },
-            { name: 'Outlet', href: '/category/accesorios/outlet' },
-            { name: 'Usado & Test', href: '/category/accesorios/usado' },
-        ]
-    },
-    {
-        name: 'HOT DEALS',
-        href: '/sale',
-        highlight: true
-    }
-];
+interface CategoryNavProps {
+    lang: string;
+}
 
-export default function CategoryNav() {
+export default function CategoryNav({ lang }: CategoryNavProps) {
+    const t = dictionary[lang as keyof typeof dictionary]?.nav || dictionary['es'].nav;
+
+    const navigation = [
+        {
+            name: t.kitesurf.name,
+            href: `/${lang}/category/kitesurf`,
+            subcategories: [
+                { name: t.kitesurf.subs.cometas, href: `/${lang}/category/kitesurf/cometas` },
+                { name: t.kitesurf.subs.tablas, href: `/${lang}/category/kitesurf/tablas` },
+                { name: t.kitesurf.subs.accesorios, href: `/${lang}/category/kitesurf/accesorios` },
+                { name: t.kitesurf.subs.outlet, href: `/${lang}/category/kitesurf/outlet` },
+            ]
+        },
+        {
+            name: t.wingfoil.name,
+            href: `/${lang}/category/wing-foil`,
+            subcategories: [
+                { name: t.wingfoil.subs.hydrofoil, href: `/${lang}/category/wing-foil/hydrofoil` },
+                { name: t.wingfoil.subs.alas, href: `/${lang}/category/wing-foil/alas` },
+                { name: t.wingfoil.subs.tablas, href: `/${lang}/category/wing-foil/tablas` },
+                { name: t.wingfoil.subs.componentes, href: `/${lang}/category/wing-foil/componentes` },
+            ]
+        },
+        {
+            name: t.accesorios.name,
+            href: `/${lang}/category/accesorios`,
+            subcategories: [
+                { name: t.accesorios.subs.todos, href: `/${lang}/category/accesorios` },
+                { name: t.accesorios.subs.nueva, href: `/${lang}/category/accesorios/nueva-temporada` },
+                { name: t.accesorios.subs.outlet, href: `/${lang}/category/accesorios/outlet` },
+                { name: t.accesorios.subs.usado, href: `/${lang}/category/accesorios/usado` },
+            ]
+        },
+        {
+            name: t.deals,
+            href: `/${lang}/sale`,
+            highlight: true
+        }
+    ];
+
     return (
         <div className="hidden md:block w-full bg-[#0051B5] border-t border-white/5 relative z-40 shadow-sm">
             <div className="max-w-[1440px] mx-auto px-4">

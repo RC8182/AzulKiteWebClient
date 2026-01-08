@@ -3,7 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
 import { Providers } from "@/providers/HeroUIProvider";
-import Navbar from "@/components/Navbar";
+import Footer from "@/components/footer/Footer";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,6 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 import { fetchData } from "@/lib/strapi";
+import Navbar from "@/components/navbar/Navbar";
 
 export async function generateMetadata(): Promise<Metadata> {
   try {
@@ -37,19 +38,24 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
+  params
 }: Readonly<{
   children: React.ReactNode;
+  params: Promise<{ lang: string }>;
 }>) {
+  const { lang } = await params;
+
   return (
-    <html lang="es">
+    <html lang={lang}>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <Providers>
-          <Navbar />
+          <Navbar lang={lang} />
           {children}
+          <Footer lang={lang} />
         </Providers>
       </body>
     </html>
