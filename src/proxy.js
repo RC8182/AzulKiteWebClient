@@ -33,6 +33,7 @@ export function proxy(request) {
         pathname.startsWith('/logo') ||
         pathname.includes('.') ||
         pathname.startsWith('/_next')
+        // pathname.startsWith('/dashboard')
     ) {
         return;
     }

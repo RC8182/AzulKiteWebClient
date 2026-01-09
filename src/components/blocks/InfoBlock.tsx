@@ -10,6 +10,7 @@ interface InfoBlockProps {
 
 export default function InfoBlock({ title, description, image, imagePosition = 'left' }: InfoBlockProps) {
     const imageUrl = getStrapiMedia(image?.url);
+    const imageAlt = image?.alternativeText || title || "Info Image";
 
     return (
         <section className="py-20 px-4">
@@ -18,7 +19,7 @@ export default function InfoBlock({ title, description, image, imagePosition = '
                     {imageUrl && (
                         <NextImage
                             src={imageUrl}
-                            alt={title}
+                            alt={imageAlt}
                             fill
                             className="object-cover"
                         />

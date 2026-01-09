@@ -1,58 +1,71 @@
-'use client'
-import { Button } from '@heroui/react';
+'use client';
+
+import { motion } from 'framer-motion';
 import { getStrapiMedia } from '@/lib/strapi';
+import Link from 'next/link';
 import NextImage from 'next/image';
 
 interface HeroSectionProps {
-    title: string;
+    title?: string;
     subtitle?: string;
-    backgroundImage: any;
+    backgroundImage?: {
+        url: string;
+        alternativeText?: string;
+    };
     cta?: {
-        label: string;
         href: string;
-        color?: "primary" | "secondary" | "danger" | "success" | "warning" | "default";
+        label: string;
     };
 }
 
-export default function HeroSection({ title, subtitle, backgroundImage, cta }: HeroSectionProps) {
-    const imageUrl = getStrapiMedia(backgroundImage?.url);
+export default function HeroSection({
+    title,
+    subtitle,
+    backgroundImage,
+    cta
+}: HeroSectionProps) {
+    const imageUrl = getStrapiMedia(backgroundImage?.url || null) || "https://placehold.co/1920x1080?text=Kiteboarding";
+    const imageAlt = backgroundImage?.alternativeText || title || "Hero Image";
 
     return (
-        <section className="relative h-[80vh] w-full flex items-center justify-center overflow-hidden bg-gray-900">
-            {imageUrl && (
-                <div className="absolute inset-0 z-0">
-                    <NextImage
-                        src={imageUrl}
-                        alt={title}
-                        fill
-                        priority
-                        className="object-cover"
-                    />
-                </div>
-            )}
-            <div className="absolute inset-0 bg-black/50 z-10" />
+        <section className="relative h-[80vh] min-h-[600px] flex items-center overflow-hidden">
+            {/* Background Image */}
+            <div className="absolute inset-0 z-0">
+                <NextImage
+                    src={imageUrl}
+                    alt={imageAlt}
+                    fill
+                    className="object-cover"
+                    priority
+                />
+                <div className="absolute inset-0 bg-black/40" />
+            </div>
 
-            <div className="relative z-20 text-center px-4 max-w-4xl">
-                <h1 className="text-5xl md:text-7xl font-bold text-white mb-6 drop-shadow-lg">
-                    {title}
-                </h1>
-                {subtitle && (
-                    <p className="text-xl md:text-2xl text-white/90 mb-8 drop-shadow-md">
-                        {subtitle}
-                    </p>
-                )}
-                {cta && (
-                    <Button
-                        as="a"
-                        href={cta.href}
-                        color={cta.color === "primary" ? "accent" as any : cta.color} // Override for Naranja CTA
-                        className={cta.color === "primary" ? "bg-[var(--color-accent)] text-white font-bold px-8 py-6 text-lg" : ""}
-                        size="lg"
-                        radius="full"
-                    >
-                        {cta.label}
-                    </Button>
-                )}
+            <div className="container mx-auto px-6 relative z-10">
+                <motion.div
+                    initial={{ opacity: 0, x: -50 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.8 }}
+                    className="max-w-2xl text-white"
+                >
+                    <h1 className="text-5xl md:text-7xl font-extrabold mb-6 leading-tight">
+                        {title}
+                    </h1>
+                    {subtitle && (
+                        <p className="text-xl md:text-2xl mb-10 opacity-90 leading-relaxed font-light">
+                            {subtitle}
+                        </p>
+                    )}
+
+                    {cta && (
+                        <Link
+                            href={cta.href}
+                            className="inline-block px-10 py-4 bg-[#FF6600] text-white font-bold rounded-full text-lg shadow-2xl hover:bg-[#e65c00] transform transition-all hover:scale-105"
+                        >
+                            {cta.label}
+                        </Link>
+                    )}
+                </motion.div>
             </div>
         </section>
     );
