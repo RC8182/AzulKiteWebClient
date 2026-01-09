@@ -55,22 +55,31 @@ export const useCart = create<CartStore>()(
                 }
             },
             removeItem: (id) => {
+                // If id is a string containing variant info, we might need a better matching
+                // But generally, the 'id' passed here should be the one from the item in the state
                 set({ items: get().items.filter((item) => item.id !== id) });
             },
             updateQuantity: (id, quantity) => {
+                const currentItems = get().items;
                 if (quantity <= 0) {
-                    get().removeItem(id);
+                    set({ items: currentItems.filter((item) => item.id !== id) });
                     return;
                 }
                 set({
-                    items: get().items.map((item) =>
+                    items: currentItems.map((item) =>
                         item.id === id ? { ...item, quantity } : item
                     ),
                 });
             },
             clearCart: () => set({ items: [] }),
-            getTotalItems: () => get().items.reduce((acc, item) => acc + item.quantity, 0),
-            getTotalPrice: () => get().items.reduce((acc, item) => acc + item.price * item.quantity, 0),
+            getTotalItems: () => {
+                const items = get().items;
+                return items.reduce((acc, item) => acc + item.quantity, 0);
+            },
+            getTotalPrice: () => {
+                const items = get().items;
+                return items.reduce((acc, item) => acc + item.price * item.quantity, 0);
+            },
         }),
         {
             name: 'cart-storage',

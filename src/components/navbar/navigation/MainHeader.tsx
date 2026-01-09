@@ -12,7 +12,7 @@ interface MainHeaderProps {
 }
 
 export default function MainHeader({ onOpenMenu, onOpenCart, lang }: MainHeaderProps) {
-    const getTotalItems = useCart((state) => state.getTotalItems);
+    const items = useCart((state) => state.items);
     const [mounted, setMounted] = useState(false);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
 
@@ -22,7 +22,7 @@ export default function MainHeader({ onOpenMenu, onOpenCart, lang }: MainHeaderP
         setMounted(true);
     }, []);
 
-    const totalItems = mounted ? getTotalItems() : 0;
+    const totalItems = mounted ? items.reduce((acc, item) => acc + item.quantity, 0) : 0;
 
     return (
         <div className="w-full bg-[#0051B5] text-white py-2 px-3 md:px-4 border-b border-white/5 sticky top-0 z-50 shadow-md">

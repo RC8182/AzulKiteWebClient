@@ -29,6 +29,7 @@ export function proxy(request) {
         pathname.startsWith('/public') ||
         pathname === '/robots.txt' ||
         pathname === '/sitemap.xml' ||
+        pathname.startsWith('/api') ||
         pathname.startsWith('/images') ||
         pathname.startsWith('/logo') ||
         pathname.includes('.') ||

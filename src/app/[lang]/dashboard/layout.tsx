@@ -1,5 +1,6 @@
 import DashboardNavbar from '@/components/dashboard/DashboardNavbar';
 import DashboardSidebar from '@/components/dashboard/DashboardSidebar';
+import AgentChat from '@/components/dashboard/AgentChat';
 
 export default async function DashboardLayout({
     children,
@@ -11,7 +12,7 @@ export default async function DashboardLayout({
     const { lang } = await params;
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 relative">
             <div className="flex">
                 {/* Sidebar */}
                 <DashboardSidebar lang={lang} />
@@ -28,6 +29,9 @@ export default async function DashboardLayout({
                     </main>
                 </div>
             </div>
+
+            {/* Global AI Agent Chat */}
+            <AgentChat role="product_agent" title="Product Assistant" />
         </div>
     );
 }

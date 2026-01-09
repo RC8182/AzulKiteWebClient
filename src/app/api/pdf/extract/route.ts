@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import pdf from 'pdf-parse/lib/pdf-parse';
+const pdf = require('pdf-parse');
 
 export async function POST(request: NextRequest) {
     try {
@@ -18,18 +18,25 @@ export async function POST(request: NextRequest) {
         const buffer = Buffer.from(arrayBuffer);
 
         // Extract text from PDF
+        // pdf-parse is a bit problematic in some Node environments
+        // We use the basic version which usually works fine in Next.js Server Actions/Routes
         const data = await pdf(buffer);
-        const text = data.text;
+
+        if (!data || !data.text) {
+            throw new Error('No text content found in PDF');
+        }
 
         return NextResponse.json({
-            text,
+            text: data.text,
             pages: data.numpages,
             info: data.info,
+            metadata: data.metadata,
+            version: data.version,
         });
     } catch (error) {
         console.error('Error extracting PDF text:', error);
         return NextResponse.json(
-            { error: 'Failed to extract PDF text' },
+            { error: error instanceof Error ? error.message : 'Failed to extract PDF text' },
             { status: 500 }
         );
     }

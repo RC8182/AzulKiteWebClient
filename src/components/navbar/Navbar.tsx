@@ -20,8 +20,6 @@ export default function Navbar({ lang }: NavbarProps) {
         setMounted(true);
     }, []);
 
-    if (!mounted) return null;
-
     return (
         <>
             <TopBar lang={lang} />
