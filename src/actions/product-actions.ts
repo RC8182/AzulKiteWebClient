@@ -96,6 +96,46 @@ export async function getProduct(id: string) {
 }
 
 /**
+ * Fetch single product by slug
+ */
+export async function getProductBySlug(slug: string) {
+    try {
+        const query = qs.stringify({
+            filters: {
+                slug: {
+                    $eq: slug,
+                },
+            },
+            populate: ['images', 'manuals'],
+        }, { encodeValuesOnly: true });
+
+        const response = await fetch(`${STRAPI_URL}/api/products?${query}`, {
+            cache: 'no-store',
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch product by slug');
+        }
+
+        const data = await response.json();
+        if (!data.data || data.data.length === 0) {
+            return null;
+        }
+
+        const product = data.data[0];
+        return {
+            id: product.id,
+            documentId: product.documentId,
+            ...product,
+            attributes: product
+        };
+    } catch (error: any) {
+        console.error('Error fetching product by slug:', error);
+        throw error;
+    }
+}
+
+/**
  * Helper to upload a file to Strapi
  */
 async function uploadFile(file: File): Promise<number> {
@@ -120,6 +160,24 @@ async function uploadFile(file: File): Promise<number> {
     const data = await response.json();
     return data[0].id; // Strapi returns array of uploaded files
 }
+
+const slugify = (text: string) => {
+    return text
+        .toString()
+        .toLowerCase()
+        .trim()
+        .normalize('NFD') // Support accented characters
+        .replace(/[\u0300-\u036f]/g, '') // Remove accents
+        .replace(/\s+/g, '-')
+        .replace(/[^\w-]+/g, '')
+        .replace(/--+/g, '-')
+        .replace(/^-+/, '')
+        .replace(/-+$/, '');
+};
+
+const generateSKU = () => {
+    return `AZK-${new Date().getFullYear()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+};
 
 /**
  * Create a new product
@@ -159,6 +217,12 @@ export async function createProduct(formData: FormData) {
             shortDescription: formData.get('shortDescription'),
             images: uploadedImageIds,
             manuals: uploadedManualIds,
+            brand: formData.get('brand'),
+            productNumber: formData.get('productNumber') || generateSKU(),
+            slug: slugify(formData.get('name') as string),
+            colors: (formData.get('colors') as string)?.split(',').map(s => s.trim()).filter(Boolean) || [],
+            sizes: (formData.get('sizes') as string)?.split(',').map(s => s.trim()).filter(Boolean) || [],
+            accessories: (formData.get('accessories') as string)?.split(',').map(s => s.trim()).filter(Boolean) || [],
         };
 
         // 4. Create product
@@ -210,8 +274,13 @@ export async function updateProduct(id: string, formData: FormData) {
 
         // 3. Get current product to merge file IDs
         const currentProduct = await getProduct(id);
-        const existingImageIds = currentProduct.attributes.images?.data?.map((img: any) => img.id) || [];
-        const existingManualIds = currentProduct.attributes.manuals?.data?.map((m: any) => m.id) || [];
+
+        // Handle Strapi 5 flat structure or Strapi 4 nested structure
+        const existingImages = currentProduct.images?.data || currentProduct.images || [];
+        const existingImageIds = existingImages.map((img: any) => img.id) || [];
+
+        const existingManuals = currentProduct.manuals?.data || currentProduct.manuals || [];
+        const existingManualIds = existingManuals.map((m: any) => m.id) || [];
 
         // Filter out removed IDs
         const finalImageIds = [
@@ -236,6 +305,12 @@ export async function updateProduct(id: string, formData: FormData) {
             shortDescription: formData.get('shortDescription'),
             images: finalImageIds,
             manuals: finalManualIds,
+            brand: formData.get('brand'),
+            productNumber: formData.get('productNumber') || generateSKU(),
+            slug: slugify(formData.get('name') as string),
+            colors: (formData.get('colors') as string)?.split(',').map(s => s.trim()).filter(Boolean) || [],
+            sizes: (formData.get('sizes') as string)?.split(',').map(s => s.trim()).filter(Boolean) || [],
+            accessories: (formData.get('accessories') as string)?.split(',').map(s => s.trim()).filter(Boolean) || [],
         };
 
         const response = await fetch(`${STRAPI_URL}/api/products/${id}`, {

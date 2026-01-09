@@ -33,7 +33,7 @@ async function getPageData(slug: string) {
               populate: ['backgroundImage', 'cta']
             },
             'blocks.info-block': {
-              populate: ['image']
+              populate: '*'
             }
           }
         }
@@ -63,41 +63,9 @@ export default async function Home() {
     );
   }
 
-  const demoBlocks = [
-    {
-      __component: 'blocks.banner-grid',
-      gridCols: 2,
-      banners: [
-        {
-          id: 1,
-          title: "Kites 2024",
-          image: { url: "https://images.unsplash.com/photo-1544621932-9011933c02af?q=80&w=1000" },
-          link: { href: "#", label: "Ver Colección" },
-          columns: 1
-        },
-        {
-          id: 2,
-          title: "Tablas Foil",
-          image: { url: "https://images.unsplash.com/photo-1534067783941-51c9c23ecefd?q=80&w=1000" },
-          link: { href: "#", label: "Explorar Tablas" },
-          columns: 1
-        }
-      ]
-    },
-    {
-      __component: 'blocks.info-block',
-      title: "Nuestra Filosofía",
-      description: "<p>En Azul Kiteboarding no solo vendemos equipo, compartimos una forma de vida. Nuestra selección está curada por expertos con más de 15 años en el agua.</p><p>Ubicados en el corazón de la bahía, ofrecemos test de material y asesoramiento personalizado para que tu progresión sea imparable.</p>",
-      image: { url: "https://images.unsplash.com/photo-1505118380757-91f5f5632de0?q=80&w=1000" },
-      imagePosition: 'right'
-    }
-  ];
-
-  const finalBlocks = page ? [...page.blocks, ...demoBlocks] : demoBlocks;
-
   return (
     <main className="min-h-screen">
-      <BlockRenderer blocks={finalBlocks} />
+      <BlockRenderer blocks={page.blocks} />
     </main>
   );
 }

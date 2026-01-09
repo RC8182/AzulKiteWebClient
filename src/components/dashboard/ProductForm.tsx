@@ -30,6 +30,11 @@ export default function ProductForm({ lang, product }: ProductFormProps) {
         description_es: attributes.description_es || '',
         description_en: attributes.description_en || '',
         description_it: attributes.description_it || '',
+        brand: attributes.brand || '',
+        productNumber: attributes.productNumber || '',
+        colors: Array.isArray(attributes.colors) ? attributes.colors.join(', ') : '',
+        sizes: Array.isArray(attributes.sizes) ? attributes.sizes.join(', ') : '',
+        accessories: Array.isArray(attributes.accessories) ? attributes.accessories.join(', ') : '',
     });
 
     const [newImages, setNewImages] = useState<File[]>([]);
@@ -187,6 +192,68 @@ export default function ProductForm({ lang, product }: ProductFormProps) {
                                     onChange={handleChange}
                                     maxLength={200}
                                     className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium mb-2">Marca (Brand)</label>
+                                    <input
+                                        type="text"
+                                        name="brand"
+                                        value={formData.brand}
+                                        onChange={handleChange}
+                                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                                        placeholder="Ej: North, Duotone"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-2">Número de Producto</label>
+                                    <input
+                                        type="text"
+                                        name="productNumber"
+                                        value={formData.productNumber}
+                                        onChange={handleChange}
+                                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                                        placeholder="Ej: N85000.200001.27"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium mb-2">Colores (separados por coma)</label>
+                                    <input
+                                        type="text"
+                                        name="colors"
+                                        value={formData.colors}
+                                        onChange={handleChange}
+                                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                                        placeholder="Ej: Blue, Red, Green"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-2">Medidas/Tallas (separadas por coma)</label>
+                                    <input
+                                        type="text"
+                                        name="sizes"
+                                        value={formData.sizes}
+                                        onChange={handleChange}
+                                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                                        placeholder="Ej: 7m, 9m, 12m o S, M, L"
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium mb-2">Accesorios (separados por coma)</label>
+                                <input
+                                    type="text"
+                                    name="accessories"
+                                    value={formData.accessories}
+                                    onChange={handleChange}
+                                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                                    placeholder="Ej: + Bar, + Pumpe, + Leash"
                                 />
                             </div>
                         </div>

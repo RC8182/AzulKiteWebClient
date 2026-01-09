@@ -8,11 +8,16 @@ export interface CartItem {
     image: string;
     quantity: number;
     category: string;
+    variant?: {
+        color?: string | null;
+        size?: string | null;
+        accessories?: string[];
+    };
 }
 
 interface CartStore {
     items: CartItem[];
-    addItem: (item: Omit<CartItem, 'quantity'>) => void;
+    addItem: (item: Omit<CartItem, 'quantity'>, quantity?: number) => void;
     removeItem: (id: string | number) => void;
     updateQuantity: (id: string | number, quantity: number) => void;
     clearCart: () => void;
@@ -24,20 +29,29 @@ export const useCart = create<CartStore>()(
     persist(
         (set, get) => ({
             items: [],
-            addItem: (newItem) => {
+            addItem: (newItem, quantity = 1) => {
                 const currentItems = get().items;
-                const existingItem = currentItems.find((item) => item.id === newItem.id);
+                // Create a unique key for items with variants
+                const getItemKey = (item: any) => {
+                    const variantStr = item.variant
+                        ? `${item.variant.color || ''}-${item.variant.size || ''}-${(item.variant.accessories || []).sort().join(',')}`
+                        : '';
+                    return `${item.id}-${variantStr}`;
+                };
+
+                const newItemKey = getItemKey(newItem);
+                const existingItem = currentItems.find((item) => getItemKey(item) === newItemKey);
 
                 if (existingItem) {
                     set({
                         items: currentItems.map((item) =>
-                            item.id === newItem.id
-                                ? { ...item, quantity: item.quantity + 1 }
+                            getItemKey(item) === newItemKey
+                                ? { ...item, quantity: item.quantity + quantity }
                                 : item
                         ),
                     });
                 } else {
-                    set({ items: [...currentItems, { ...newItem, quantity: 1 }] });
+                    set({ items: [...currentItems, { ...newItem, quantity }] });
                 }
             },
             removeItem: (id) => {
