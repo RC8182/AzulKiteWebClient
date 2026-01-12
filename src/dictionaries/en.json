@@ -1,0 +1,25 @@
+{
+    "common": {
+        "loading": "Loading...",
+        "error": "An error occurred",
+        "save": "Save",
+        "cancel": "Cancel"
+    },
+    "navbar": {
+        "home": "Home",
+        "shop": "Shop",
+        "school": "School",
+        "about": "About",
+        "contact": "Contact",
+        "dashboard": "Dashboard"
+    },
+    "footer": {
+        "rights": "All rights reserved",
+        "policy": "Privacy Policy",
+        "terms": "Terms & Conditions"
+    },
+    "dashboard": {
+        "title": "Product Management",
+        "welcome": "Welcome to the admin dashboard"
+    }
+}

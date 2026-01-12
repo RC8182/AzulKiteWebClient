@@ -13,11 +13,27 @@ export default async function EditProductPage({
     const dict = getDictionary(lang as any);
 
     try {
-        const product = await getProduct(id);
+        const [productEs, productEn, productIt] = await Promise.all([
+            getProduct(id, 'es').catch(() => null),
+            getProduct(id, 'en').catch(() => null),
+            getProduct(id, 'it').catch(() => null),
+        ]);
 
-        if (!product) {
+        const baseProduct = productEs || productEn || productIt;
+
+        if (!baseProduct) {
             notFound();
         }
+
+        const product = {
+            ...baseProduct,
+            attributes: {
+                ...(baseProduct.attributes || baseProduct),
+                description_es: productEs?.description || '',
+                description_en: productEn?.description || '',
+                description_it: productIt?.description || '',
+            }
+        };
 
         return (
             <div>

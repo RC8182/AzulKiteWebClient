@@ -1,0 +1,25 @@
+{
+    "common": {
+        "loading": "Cargando...",
+        "error": "Ha ocurrido un error",
+        "save": "Guardar",
+        "cancel": "Cancelar"
+    },
+    "navbar": {
+        "home": "Inicio",
+        "shop": "Tienda",
+        "school": "Escuela",
+        "about": "Nosotros",
+        "contact": "Contacto",
+        "dashboard": "Panel"
+    },
+    "footer": {
+        "rights": "Todos los derechos reservados",
+        "policy": "Política de Privacidad",
+        "terms": "Términos y Condiciones"
+    },
+    "dashboard": {
+        "title": "Gestión de Productos",
+        "welcome": "Bienvenido al panel de administración"
+    }
+}

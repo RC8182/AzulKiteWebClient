@@ -13,7 +13,7 @@ export class ProductAgent extends BaseAgent {
 Tu objetivo es ayudar a crear y optimizar productos en el eCommerce.
 Puedes procesar manuales técnicos (PDF), datos de WordPress, JSON o texto libre.
 REGLAS CRÍTICAS:
-1. SIEMPRE crea el contenido en los 3 idiomas (español, inglés, italiano).
+1. Genera contenido de alta calidad. Si el sistema soporta i18n, asegúrate de proporcionar las traducciones necesarias (ES, EN, IT).
 2. NUNCA inventes información técnica, precios o colores si no los tienes. Pregunta al usuario.
 3. Si recibes una lista de productos (JSON/WordPress), usa la herramienta create_product para cada uno.
 4. Identifica campos faltantes como: precio, categoría, colores, tallas, o descripción técnica.
@@ -48,16 +48,16 @@ REGLAS CRÍTICAS:
                             price: { type: 'number', description: 'Precio en euros' },
                             category: { type: 'string', description: 'Categoría (obtener de list_categories)' },
                             stock: { type: 'number', description: 'Stock inicial' },
-                            description_es: { type: 'string', description: 'Descripción en español' },
-                            description_en: { type: 'string', description: 'Descripción en inglés' },
-                            description_it: { type: 'string', description: 'Descripción en italiano' },
+                            description: { type: 'string', description: 'Descripción principal (ES)' },
+                            description_en: { type: 'string', description: 'Traducción al inglés' },
+                            description_it: { type: 'string', description: 'Traducción al italiano' },
                             shortDescription: { type: 'string', description: 'Resumen corto (máx 200 caracteres)' },
                             brand: { type: 'string', description: 'Marca del producto' },
                             productNumber: { type: 'string', description: 'Código de producto o SKU' },
                             colors: { type: 'array', items: { type: 'string' } },
                             sizes: { type: 'array', items: { type: 'string' } },
                         },
-                        required: ['name', 'price', 'category']
+                        required: ['name', 'price', 'category', 'description']
                     }
                 },
                 execute: async (args) => {

@@ -15,7 +15,7 @@ export default async function DashboardPage({
     let connectionError = false;
 
     try {
-        productsData = await getProducts(1, 10);
+        productsData = await getProducts(1, 10, null, lang);
     } catch (error) {
         console.error('Failed to fetch dashboard data:', error);
         connectionError = true;

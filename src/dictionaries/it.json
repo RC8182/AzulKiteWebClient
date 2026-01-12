@@ -1,0 +1,25 @@
+{
+    "common": {
+        "loading": "Caricamento...",
+        "error": "Si è verificato un errore",
+        "save": "Salva",
+        "cancel": "Annulla"
+    },
+    "navbar": {
+        "home": "Home",
+        "shop": "Negozio",
+        "school": "Scuola",
+        "about": "Chi Siamo",
+        "contact": "Contatti",
+        "dashboard": "Pannello"
+    },
+    "footer": {
+        "rights": "Tutti i diritti riservati",
+        "policy": "Privacy Policy",
+        "terms": "Termini e Condizioni"
+    },
+    "dashboard": {
+        "title": "Gestione Prodotti",
+        "welcome": "Benvenuto nel pannello di amministrazione"
+    }
+}

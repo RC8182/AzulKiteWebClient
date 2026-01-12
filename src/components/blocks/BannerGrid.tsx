@@ -10,10 +10,10 @@ interface Banner {
     image: {
         url: string;
     };
-    link: {
+    links?: {
         href: string;
         label: string;
-    };
+    }[];
     columns: number;
 }
 
@@ -50,13 +50,20 @@ export default function BannerGrid({ banners = [], gridCols = 2 }: BannerGridPro
                             >
                                 {banner.title}
                             </motion.h3>
-                            {banner.link && (
-                                <Link
-                                    href={banner.link.href}
-                                    className="inline-block w-fit bg-white text-black px-6 py-2 rounded-full font-bold opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-4 group-hover:translate-y-0"
-                                >
-                                    {banner.link.label || 'Ver más'}
-                                </Link>
+
+                            {/* Multiple Links (New) */}
+                            {banner.links && banner.links.length > 0 && (
+                                <div className="flex flex-wrap gap-3 mt-4">
+                                    {banner.links.map((link, idx) => (
+                                        <Link
+                                            key={idx}
+                                            href={link.href}
+                                            className="bg-black/30 hover:bg-white text-white hover:text-black backdrop-blur-md border border-white/30 px-4 py-1.5 rounded-full text-xs md:text-sm font-bold transition-all"
+                                        >
+                                            {link.label}
+                                        </Link>
+                                    ))}
+                                </div>
                             )}
                         </div>
                     </motion.div>

@@ -17,9 +17,10 @@ const geistMono = Geist_Mono({
 import { fetchData } from "@/lib/strapi";
 import Navbar from "@/components/navbar/Navbar";
 
-export async function generateMetadata(): Promise<Metadata> {
+export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
+  const { lang } = await params;
   try {
-    const globalData = await fetchData("global", { populate: "*" });
+    const globalData = await fetchData("global", { populate: "*", locale: lang });
     const siteName = globalData?.data?.siteName || "Azul Kiteboarding";
 
     return {

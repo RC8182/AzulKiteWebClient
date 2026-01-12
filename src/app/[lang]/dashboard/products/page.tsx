@@ -12,7 +12,7 @@ export default async function ProductsPage({
 }) {
     const { lang } = await params;
     const dict = getDictionary(lang as any);
-    const productsData = await getProducts(1, 50);
+    const productsData = await getProducts(1, 50, null, lang);
     const products = productsData?.data || [];
 
     return (

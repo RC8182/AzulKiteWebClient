@@ -1,10 +1,15 @@
 import { fetchData } from "@/lib/strapi";
 import BlockRenderer from "@/components/blocks/BlockRenderer";
 
-async function getPageData(slug: string) {
+async function getPageData(slug: string, locale: string) {
+  console.log(`[getPageData] Starting fetch for slug: ${slug}, locale: ${locale}`);
   try {
+    // Skip irrelevant requests caught by the dynamic [lang] route
+    if (locale === 'favicon.ico' || locale.includes('.')) return null;
+
     const data = await fetchData("pages", {
       filters: { slug: { $eq: slug } },
+      locale,
       populate: {
         blocks: {
           on: {
@@ -18,7 +23,7 @@ async function getPageData(slug: string) {
             'blocks.banner-grid': {
               populate: {
                 banners: {
-                  populate: ['image', 'link']
+                  populate: ['image', 'links']
                 }
               }
             },
@@ -40,6 +45,12 @@ async function getPageData(slug: string) {
       }
     });
 
+    console.log(`[getPageData] Response received. Found ${data?.data?.length || 0} items for slug: ${slug}`);
+
+    if (data?.data?.length > 0) {
+      console.log(`[getPageData] Page ID: ${data.data[0].id}, DocumentID: ${data.data[1]?.documentId || data.data[0].documentId}`);
+    }
+
     return data?.data?.[0];
   } catch (error) {
     console.error("Error fetching page data:", error);
@@ -47,8 +58,13 @@ async function getPageData(slug: string) {
   }
 }
 
-export default async function Home() {
-  const page = await getPageData("home");
+interface HomeProps {
+  params: Promise<{ lang: string }>;
+}
+
+export default async function Home({ params }: HomeProps) {
+  const { lang } = await params;
+  const page = await getPageData("home", lang);
 
   if (!page) {
     // Basic fallback UI if no data is found in Strapi

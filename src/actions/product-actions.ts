@@ -9,9 +9,6 @@ const STRAPI_URL = process.env.NEXT_PUBLIC_STRAPI_URL || 'http://localhost:1337'
 interface ProductData {
     name: string;
     description?: string;
-    description_es?: string;
-    description_en?: string;
-    description_it?: string;
     shortDescription?: string;
     price: number;
     stock: number;
@@ -21,16 +18,23 @@ interface ProductData {
 /**
  * Fetch all products with pagination
  */
-export async function getProducts(page: number = 1, pageSize: number = 25, filters?: any) {
+export async function getProducts(page: number = 1, pageSize: number = 25, filters?: any, locale: string = 'es') {
     try {
-        const query = qs.stringify({
+        const queryObj: any = {
             pagination: {
                 page,
                 pageSize,
             },
             populate: ['images', 'manuals'],
-            filters,
-        }, { encodeValuesOnly: true });
+            locale,
+            publicationState: 'preview',
+        };
+
+        if (filters) {
+            queryObj.filters = filters;
+        }
+
+        const query = qs.stringify(queryObj, { encodeValuesOnly: true });
 
         const response = await fetch(`${STRAPI_URL}/api/products?${query}`, {
             cache: 'no-store',
@@ -53,16 +57,18 @@ export async function getProducts(page: number = 1, pageSize: number = 25, filte
     } catch (error) {
         console.error('Error fetching products:', error);
         throw error;
+
     }
 }
 
 /**
  * Fetch single product by ID
  */
-export async function getProduct(id: string) {
+export async function getProduct(id: string, locale: string = 'es') {
     try {
         const query = qs.stringify({
-            populate: ['images', 'manuals'],
+            populate: ['images', 'manuals', 'localizations'],
+            locale,
         }, { encodeValuesOnly: true });
 
         const response = await fetch(`${STRAPI_URL}/api/products/${id}?${query}`, {
@@ -98,16 +104,19 @@ export async function getProduct(id: string) {
 /**
  * Fetch single product by slug
  */
-export async function getProductBySlug(slug: string) {
+export async function getProductBySlug(slug: string, locale: string = 'es') {
     try {
-        const query = qs.stringify({
+        const queryObj: any = {
             filters: {
                 slug: {
                     $eq: slug,
                 },
             },
             populate: ['images', 'manuals'],
-        }, { encodeValuesOnly: true });
+            locale,
+        };
+
+        const query = qs.stringify(queryObj, { encodeValuesOnly: true });
 
         const response = await fetch(`${STRAPI_URL}/api/products?${query}`, {
             cache: 'no-store',
@@ -205,16 +214,11 @@ export async function createProduct(formData: FormData) {
             }
         }
 
-        // 3. Prepare product data
-        const productData: any = {
-            name: formData.get('name'),
+        // 3. Prepare common product data (Non-localized)
+        const commonData = {
             price: parseFloat(formData.get('price') as string),
             stock: parseInt(formData.get('stock') as string),
             category: formData.get('category'),
-            description_es: formData.get('description_es'),
-            description_en: formData.get('description_en'),
-            description_it: formData.get('description_it'),
-            shortDescription: formData.get('shortDescription'),
             images: uploadedImageIds,
             manuals: uploadedManualIds,
             brand: formData.get('brand'),
@@ -225,19 +229,56 @@ export async function createProduct(formData: FormData) {
             accessories: (formData.get('accessories') as string)?.split(',').map(s => s.trim()).filter(Boolean) || [],
         };
 
-        // 4. Create product
-        const response = await fetch(`${STRAPI_URL}/api/products`, {
+        // 4. Create Base Product (ES - Default Locale)
+        const name = formData.get('name');
+        const shortDescription = formData.get('shortDescription');
+        const description = formData.get('description'); // El agente ahora debe enviar 'description'
+
+        const esData = {
+            ...commonData,
+            name,
+            shortDescription,
+            description,
+            locale: 'es',
+        };
+
+        const responseEs = await fetch(`${STRAPI_URL}/api/products`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ data: productData }),
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data: esData }),
         });
 
-        const data = await response.json();
+        const dataEs = await responseEs.json();
+
+        if (!responseEs.ok) {
+            throw new Error(dataEs.error?.message || 'Failed to create product (ES)');
+        }
+
+        const productId = dataEs.data.documentId; // Strapi 5 usa documentId para localizaciones
+
+        // 5. Create Localizations (EN, IT) if provided
+        // Nota: En el nuevo flujo, el agente o el usuario pueden enviar traducciones.
+        // Si el agente envía description_en/it por inercia, las manejamos temporalmente o las mapeamos.
+        const locales = ['en', 'it'];
+        for (const loc of locales) {
+            const localizedDesc = formData.get(`description_${loc}`);
+            if (localizedDesc) {
+                await fetch(`${STRAPI_URL}/api/products/${productId}/localizations`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        locale: loc,
+                        name,
+                        shortDescription,
+                        description: localizedDesc,
+                    }),
+                });
+            }
+        }
+
         revalidatePath('/[lang]/dashboard/products', 'page');
         revalidatePath('/[lang]/dashboard', 'layout');
-        return { success: true, data: data.data };
+        return { success: true, data: dataEs.data };
     } catch (error: any) {
         console.error('Error creating product:', error);
         return { success: false, error: error.message };
@@ -275,14 +316,12 @@ export async function updateProduct(id: string, formData: FormData) {
         // 3. Get current product to merge file IDs
         const currentProduct = await getProduct(id);
 
-        // Handle Strapi 5 flat structure or Strapi 4 nested structure
         const existingImages = currentProduct.images?.data || currentProduct.images || [];
         const existingImageIds = existingImages.map((img: any) => img.id) || [];
 
         const existingManuals = currentProduct.manuals?.data || currentProduct.manuals || [];
         const existingManualIds = existingManuals.map((m: any) => m.id) || [];
 
-        // Filter out removed IDs
         const finalImageIds = [
             ...existingImageIds.filter((imgId: number) => !removedImageIds.includes(imgId.toString())),
             ...uploadedImageIds
@@ -293,16 +332,11 @@ export async function updateProduct(id: string, formData: FormData) {
             ...uploadedManualIds
         ];
 
-        // 4. Update product
-        const productData: any = {
-            name: formData.get('name'),
+        // 4. Prepare common data (Non-localized)
+        const commonData = {
             price: parseFloat(formData.get('price') as string),
             stock: parseInt(formData.get('stock') as string),
             category: formData.get('category'),
-            description_es: formData.get('description_es'),
-            description_en: formData.get('description_en'),
-            description_it: formData.get('description_it'),
-            shortDescription: formData.get('shortDescription'),
             images: finalImageIds,
             manuals: finalManualIds,
             brand: formData.get('brand'),
@@ -313,23 +347,69 @@ export async function updateProduct(id: string, formData: FormData) {
             accessories: (formData.get('accessories') as string)?.split(',').map(s => s.trim()).filter(Boolean) || [],
         };
 
-        const response = await fetch(`${STRAPI_URL}/api/products/${id}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ data: productData }),
-        });
+        // Helper to upsert locale
+        const upsertLocale = async (targetLocale: string, data: any, isDefault: boolean = false) => {
+            // Check if this locale exists
+            const currentLocales = [currentProduct.locale, ...(currentProduct.localizations?.map((l: any) => l.locale) || [])];
+            const exists = currentLocales.includes(targetLocale);
 
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            console.error('Strapi Update Product Error:', {
-                status: response.status,
-                statusText: response.statusText,
-                error: errorData,
-                id
+            if (exists) {
+                // Update existing
+                // Use documentId if available, or just id + locale query matches the document in Strapi 5
+                // Actually in Strapi 5 PUT /products/:documentId updates the document fields. 
+                // We must pass locale query param to target specific locale content.
+                await fetch(`${STRAPI_URL}/api/products/${id}?locale=${targetLocale}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ data }),
+                });
+            } else {
+                // Create localization (Add translation)
+                // We use the ID of the current product (which serves as the "source" for linking)
+                // In Strapi 5, we might need to POST to /api/products/:documentId/localizations
+                // But typically :id (documentId) + /localizations works. Let's try standard V4 way first which is often compatible or check.
+                // Actually safer: POST /api/products/:id/localizations (where id is documentId)
+                await fetch(`${STRAPI_URL}/api/products/${id}/localizations`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        locale: targetLocale,
+                        ...data
+                    }),
+                });
+            }
+        };
+
+        const name = formData.get('name');
+        const shortDescription = formData.get('shortDescription');
+
+        // 5. Update/Create ES
+        const description = formData.get('description') || formData.get('description_es');
+        await upsertLocale('es', {
+            ...commonData,
+            name,
+            shortDescription,
+            description,
+        }, true);
+
+        // 6. Update/Create EN
+        const description_en = formData.get('description_en');
+        if (description_en) {
+            await upsertLocale('en', {
+                name,
+                shortDescription,
+                description: description_en,
             });
-            throw new Error(errorData.error?.message || `Failed to update product: ${response.statusText}`);
+        }
+
+        // 7. Update/Create IT
+        const description_it = formData.get('description_it');
+        if (description_it) {
+            await upsertLocale('it', {
+                name,
+                shortDescription,
+                description: description_it,
+            });
         }
 
         revalidatePath('/[lang]/dashboard/products', 'page');
@@ -483,21 +563,20 @@ export async function indexProductManuals(id: string) {
  * Update AI-generated description
  */
 export async function updateAIDescription(
-    id: string,
+    id: string, // documentId
     language: 'es' | 'en' | 'it',
     description: string
 ) {
     try {
-        const fieldName = `description_${language}`;
-
-        const response = await fetch(`${STRAPI_URL}/api/products/${id}`, {
+        // En Strapi 5, actualizamos el documento pasando el locale por query
+        const response = await fetch(`${STRAPI_URL}/api/products/${id}?locale=${language}`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
                 data: {
-                    [fieldName]: description,
+                    description: description,
                     aiGenerated: true,
                     lastAiUpdate: new Date().toISOString(),
                 },
@@ -505,7 +584,8 @@ export async function updateAIDescription(
         });
 
         if (!response.ok) {
-            throw new Error('Failed to update description');
+            const error = await response.json();
+            throw new Error(error.error?.message || 'Failed to update description');
         }
 
         const data = await response.json();

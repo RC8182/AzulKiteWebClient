@@ -13,6 +13,8 @@ export async function fetchData(endpoint: string, query?: Record<string, any>) {
         },
     });
 
+    console.log(`[Strapi Fetch] ${url} - Status: ${res.status}`);
+
     if (!res.ok) {
         throw new Error(`Failed to fetch data from Strapi: ${res.statusText}`);
     }
