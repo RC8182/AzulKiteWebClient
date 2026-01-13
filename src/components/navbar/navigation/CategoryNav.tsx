@@ -5,48 +5,36 @@ import { dictionary } from '../db';
 
 interface CategoryNavProps {
     lang: string;
+    categories: any[];
 }
 
-export default function CategoryNav({ lang }: CategoryNavProps) {
-    const t = dictionary[lang as keyof typeof dictionary]?.nav || dictionary['es'].nav;
+export default function CategoryNav({ lang, categories = [] }: CategoryNavProps) {
+    // 1. Identify main categories (those whose parent is named "Shop" or has slug "shop")
+    // Or simpler: those that have subcategories or are meant to be in root.
+    // Based on bootstrap: Kitesurf, Wing & Foil, Accessories, Wetsuits are level 1.
 
-    const navigation = [
-        {
-            name: t.kitesurf.name,
-            href: `/${lang}/category/kitesurf`,
-            subcategories: [
-                { name: t.kitesurf.subs.cometas, href: `/${lang}/category/kitesurf/cometas` },
-                { name: t.kitesurf.subs.tablas, href: `/${lang}/category/kitesurf/tablas` },
-                { name: t.kitesurf.subs.accesorios, href: `/${lang}/category/kitesurf/accesorios` },
-                { name: t.kitesurf.subs.outlet, href: `/${lang}/category/kitesurf/outlet` },
-            ]
-        },
-        {
-            name: t.wingfoil.name,
-            href: `/${lang}/category/wing-foil`,
-            subcategories: [
-                { name: t.wingfoil.subs.hydrofoil, href: `/${lang}/category/wing-foil/hydrofoil` },
-                { name: t.wingfoil.subs.alas, href: `/${lang}/category/wing-foil/alas` },
-                { name: t.wingfoil.subs.tablas, href: `/${lang}/category/wing-foil/tablas` },
-                { name: t.wingfoil.subs.componentes, href: `/${lang}/category/wing-foil/componentes` },
-            ]
-        },
-        {
-            name: t.accesorios.name,
-            href: `/${lang}/category/accesorios`,
-            subcategories: [
-                { name: t.accesorios.subs.todos, href: `/${lang}/category/accesorios` },
-                { name: t.accesorios.subs.nueva, href: `/${lang}/category/accesorios/nueva-temporada` },
-                { name: t.accesorios.subs.outlet, href: `/${lang}/category/accesorios/outlet` },
-                { name: t.accesorios.subs.usado, href: `/${lang}/category/accesorios/usado` },
-            ]
-        },
-        {
-            name: t.deals,
-            href: `/${lang}/sale`,
-            highlight: true
-        }
-    ];
+    const shopCat = categories.find(c => c.slug === 'shop');
+    const rootCategories = categories.filter(c => c.parent?.documentId === shopCat?.documentId);
+
+    const navigation = rootCategories.map(cat => {
+        const isCollections = cat.slug === 'collections';
+        const t = dictionary[lang as keyof typeof dictionary]?.nav || dictionary['es'].nav;
+
+        // If it's "Collections", we might want to name it "Deals" or "Ofertas"
+        const displayName = isCollections ? t.deals : cat.name;
+
+        return {
+            name: displayName,
+            href: `/${lang}/category/${cat.slug}`,
+            highlight: isCollections,
+            subcategories: categories
+                .filter(sub => sub.parent?.documentId === cat.documentId)
+                .map(sub => ({
+                    name: sub.name,
+                    href: `/${lang}/category/${sub.slug}`
+                }))
+        };
+    });
 
     return (
         <div className="hidden md:block w-full bg-[#0051B5] border-t border-white/5 relative z-40 shadow-sm">
@@ -79,7 +67,7 @@ export default function CategoryNav({ lang }: CategoryNavProps) {
                             ) : (
                                 <a
                                     href={item.href}
-                                    className={`flex items-center h-8 px-5 font-bold tracking-widest text-[10px] transition-colors uppercase ${item.highlight
+                                    className={`flex items-center h-8 px-5 font-bold tracking-widest text-[10px] transition-colors uppercase ${(item as any).highlight
                                         ? 'text-[var(--color-accent)] hover:bg-[var(--color-accent)] hover:text-white'
                                         : 'text-white hover:bg-white/10'
                                         }`}

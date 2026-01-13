@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { getStrapiMedia } from '@/lib/strapi';
+import { useParams } from 'next/navigation';
 
 interface Banner {
     id: number;
@@ -25,6 +26,8 @@ interface BannerGridProps {
 const STRAPI_URL = process.env.NEXT_PUBLIC_STRAPI_URL || 'http://localhost:1337';
 
 export default function BannerGrid({ banners = [], gridCols = 2 }: BannerGridProps) {
+    const { lang } = useParams();
+
     if (!banners || banners.length === 0) return null;
 
     return (
@@ -54,15 +57,21 @@ export default function BannerGrid({ banners = [], gridCols = 2 }: BannerGridPro
                             {/* Multiple Links (New) */}
                             {banner.links && banner.links.length > 0 && (
                                 <div className="flex flex-wrap gap-3 mt-4">
-                                    {banner.links.map((link, idx) => (
-                                        <Link
-                                            key={idx}
-                                            href={link.href}
-                                            className="bg-black/30 hover:bg-white text-white hover:text-black backdrop-blur-md border border-white/30 px-4 py-1.5 rounded-full text-xs md:text-sm font-bold transition-all"
-                                        >
-                                            {link.label}
-                                        </Link>
-                                    ))}
+                                    {banner.links.map((link, idx) => {
+                                        const href = link.href.startsWith('http')
+                                            ? link.href
+                                            : `/${lang}${link.href.startsWith('/') ? '' : '/'}${link.href}`;
+
+                                        return (
+                                            <Link
+                                                key={idx}
+                                                href={href}
+                                                className="bg-black/30 hover:bg-white text-white hover:text-black backdrop-blur-md border border-white/30 px-4 py-1.5 rounded-full text-xs md:text-sm font-bold transition-all"
+                                            >
+                                                {link.label}
+                                            </Link>
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>

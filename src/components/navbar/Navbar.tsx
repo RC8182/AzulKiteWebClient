@@ -9,9 +9,10 @@ import CartDrawer from '../cart/CartDrawer';
 
 interface NavbarProps {
     lang: string;
+    categories: any[];
 }
 
-export default function Navbar({ lang }: NavbarProps) {
+export default function Navbar({ lang, categories }: NavbarProps) {
     const [isCartOpen, setIsCartOpen] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [mounted, setMounted] = useState(false);
@@ -28,7 +29,7 @@ export default function Navbar({ lang }: NavbarProps) {
                 onOpenMenu={() => setIsMenuOpen(true)}
                 onOpenCart={() => setIsCartOpen(true)}
             />
-            <CategoryNav lang={lang} />
+            <CategoryNav lang={lang} categories={categories} />
 
             {/* Drawers (Native Implementation) */}
             <MobileDrawer lang={lang} isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />

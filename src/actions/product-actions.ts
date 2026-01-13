@@ -12,7 +12,7 @@ interface ProductData {
     shortDescription?: string;
     price: number;
     stock: number;
-    category: string;
+    categories: string[] | number[];
 }
 
 /**
@@ -218,7 +218,7 @@ export async function createProduct(formData: FormData) {
         const commonData = {
             price: parseFloat(formData.get('price') as string),
             stock: parseInt(formData.get('stock') as string),
-            category: formData.get('category'),
+            categories: formData.getAll('categories').length > 0 ? formData.getAll('categories') : (formData.get('category') ? [formData.get('category')] : []),
             images: uploadedImageIds,
             manuals: uploadedManualIds,
             brand: formData.get('brand'),
@@ -336,7 +336,7 @@ export async function updateProduct(id: string, formData: FormData) {
         const commonData = {
             price: parseFloat(formData.get('price') as string),
             stock: parseInt(formData.get('stock') as string),
-            category: formData.get('category'),
+            categories: formData.getAll('categories').length > 0 ? formData.getAll('categories') : (formData.get('category') ? [formData.get('category')] : []),
             images: finalImageIds,
             manuals: finalManualIds,
             brand: formData.get('brand'),

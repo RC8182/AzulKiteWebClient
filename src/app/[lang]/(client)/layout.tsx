@@ -1,5 +1,6 @@
 import Navbar from "@/components/navbar/Navbar";
 import Footer from "@/components/footer/Footer";
+import { getCategories } from "@/actions/category-actions";
 
 export default async function ClientLayout({
     children,
@@ -9,10 +10,11 @@ export default async function ClientLayout({
     params: Promise<{ lang: string }>;
 }) {
     const { lang } = await params;
+    const categories = await getCategories(lang);
 
     return (
         <>
-            <Navbar lang={lang} />
+            <Navbar lang={lang} categories={categories} />
             {children}
             <Footer lang={lang} />
         </>
