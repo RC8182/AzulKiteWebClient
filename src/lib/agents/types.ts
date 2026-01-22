@@ -15,6 +15,11 @@ export interface AgentContext {
     currentProductId?: string;
     sessionData?: Record<string, any>;
     files?: File[];
+    catalogHealth?: {
+        uncategorized: number;
+        criticalStock: number;
+        missingDescriptions: number;
+    };
 }
 
 export interface ToolDefinition {
@@ -33,7 +38,9 @@ export interface AgentTool {
 }
 
 export interface AgentResponse {
+    role?: 'assistant';
     content: string;
+    timestamp?: number;
     suggestedActions?: Array<{
         label: string;
         action: string;

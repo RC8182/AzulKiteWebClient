@@ -12,6 +12,8 @@ export interface CartItem {
         color?: string | null;
         size?: string | null;
         accessories?: string[];
+        originalPrice?: number;
+        discount?: number;
     };
 }
 

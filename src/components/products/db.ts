@@ -16,7 +16,27 @@ const dictionary = {
         },
         product: {
             description: 'Descripción',
-            noDescription: 'No hay descripción disponible para este producto.'
+            noDescription: 'No hay descripción disponible para este producto.',
+            color: 'Color',
+            size: 'Medida',
+            accessories: 'Accesorios',
+            quantity: 'Cantidad',
+            sku: 'Referencia',
+            brand: 'Marca',
+            stock: {
+                inStock: 'En stock',
+                units: 'unidades',
+                shipping: 'envío en 2-5 días',
+                outOfStock: 'Agotado',
+                shippingCalc: 'Envío calculado en checkout',
+                inclVat: 'IVA incluido'
+            },
+            actions: {
+                addToCart: 'Añadir al Carrito',
+                buyNow: 'Comprar Ahora',
+                wishlist: 'Lista de Deseos',
+                share: 'Compartir'
+            }
         }
     },
     en: {
@@ -34,7 +54,27 @@ const dictionary = {
         },
         product: {
             description: 'Description',
-            noDescription: 'No description available for this product.'
+            noDescription: 'No description available for this product.',
+            color: 'Color',
+            size: 'Size',
+            accessories: 'Accessories',
+            quantity: 'Quantity',
+            sku: 'SKU',
+            brand: 'Brand',
+            stock: {
+                inStock: 'In Stock',
+                units: 'units',
+                shipping: 'ships in 2-5 days',
+                outOfStock: 'Out of Stock',
+                shippingCalc: 'Shipping calculated at checkout',
+                inclVat: 'Incl. VAT'
+            },
+            actions: {
+                addToCart: 'Add to Cart',
+                buyNow: 'Buy Now',
+                wishlist: 'Wishlist',
+                share: 'Share'
+            }
         }
     },
     it: {
@@ -52,7 +92,27 @@ const dictionary = {
         },
         product: {
             description: 'Descrizione',
-            noDescription: 'Nessuna descrizione disponibile per questo prodotto.'
+            noDescription: 'Nessuna descrizione disponibile per questo prodotto.',
+            color: 'Colore',
+            size: 'Taglia',
+            accessories: 'Accessori',
+            quantity: 'Quantità',
+            sku: 'SKU',
+            brand: 'Marca',
+            stock: {
+                inStock: 'Disponibile',
+                units: 'unità',
+                shipping: 'spedizione in 2-5 giorni',
+                outOfStock: 'Esaurito',
+                shippingCalc: 'Spedizione calcolata al checkout',
+                inclVat: 'IVA incl.'
+            },
+            actions: {
+                addToCart: 'Aggiungi al Carrello',
+                buyNow: 'Compra Ora',
+                wishlist: 'Lista dei Desideri',
+                share: 'Condividi'
+            }
         }
     }
 };

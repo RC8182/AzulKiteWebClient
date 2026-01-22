@@ -3,11 +3,12 @@ import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 import { fetchData } from '@/lib/strapi';
 import BlockRenderer from '@/components/blocks/BlockRenderer';
+import { notFound } from 'next/navigation';
 
 interface CategoryPageProps {
     params: Promise<{
         lang: string;
-        slug: string;
+        slug: string[];
     }>;
 }
 
@@ -38,9 +39,17 @@ async function getCategoryPageData(locale: string) {
 export default async function CategoryPage({ params }: CategoryPageProps) {
     const { lang, slug } = await params;
 
-    // 1. Fetch category metadata from Strapi (Source of truth)
-    const category = await getCategoryBySlug(slug, lang);
-    const categoryName = category?.name || slug.charAt(0).toUpperCase() + slug.slice(1);
+    // The leaf category is the last slug in the array
+    const leafSlug = slug[slug.length - 1];
+
+    // 1. Fetch category metadata from Strapi
+    const category = await getCategoryBySlug(leafSlug, lang);
+
+    if (!category) {
+        notFound();
+    }
+
+    const categoryName = category.name;
 
     // Fetch optional page blocks from Strapi
     const pageData = await getCategoryPageData(lang);
@@ -60,6 +69,8 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
                     <nav className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-4">
                         <Link href={`/${lang}`} className="hover:text-[#0051B5] transition-colors">Azul Kite</Link>
                         <ChevronRight size={10} />
+                        <Link href={`/${lang}/shop`} className="hover:text-[#0051B5] transition-colors">Shop</Link>
+                        <ChevronRight size={10} />
                         <span className="text-[#0051B5]">{categoryName}</span>
                     </nav>
                     <h1 className="text-4xl md:text-5xl font-black text-[#003366] uppercase tracking-tighter italic">
@@ -69,7 +80,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
             </div>
 
             <main className="flex-grow">
-                {/* Manual grid removed as it is now managed via Strapi blocks in pageData or category.blocks */}
+                {/* Content rendering is handled by BlockRenderer */}
             </main>
         </div>
     );

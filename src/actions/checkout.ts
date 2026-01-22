@@ -4,7 +4,7 @@ const STRAPI_URL = process.env.NEXT_PUBLIC_STRAPI_URL || 'http://localhost:1337'
 
 export async function createCheckoutSession(data: {
     customer_email: string;
-    products: { id: string | number; quantity: number }[];
+    products: { id: string | number; quantity: number; color?: string | null; size?: string | null }[];
 }) {
     try {
         const response = await fetch(`${STRAPI_URL}/api/orders`, {

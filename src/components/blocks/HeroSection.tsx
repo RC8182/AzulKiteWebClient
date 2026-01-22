@@ -28,7 +28,7 @@ export default function HeroSection({
     const imageAlt = backgroundImage?.alternativeText || title || "Hero Image";
 
     return (
-        <section className="relative h-[80vh] min-h-[600px] flex items-center overflow-hidden">
+        <section className="relative aspect-[16/9] flex items-center overflow-hidden">
             {/* Background Image */}
             <div className="absolute inset-0 z-0">
                 <NextImage
@@ -38,7 +38,7 @@ export default function HeroSection({
                     className="object-cover"
                     priority
                 />
-                <div className="absolute inset-0 bg-black/40" />
+                <div className="absolute inset-0 bg-black/30 md:bg-black/40" />
             </div>
 
             <div className="container mx-auto px-6 relative z-10">
@@ -48,11 +48,11 @@ export default function HeroSection({
                     transition={{ duration: 0.8 }}
                     className="max-w-2xl text-white"
                 >
-                    <h1 className="text-5xl md:text-7xl font-extrabold mb-6 leading-tight">
+                    <h1 className="text-3xl md:text-7xl font-extrabold mb-4 md:mb-6 leading-tight">
                         {title}
                     </h1>
                     {subtitle && (
-                        <p className="text-xl md:text-2xl mb-10 opacity-90 leading-relaxed font-light">
+                        <p className="text-base md:text-2xl mb-6 md:mb-10 opacity-90 leading-relaxed font-light">
                             {subtitle}
                         </p>
                     )}

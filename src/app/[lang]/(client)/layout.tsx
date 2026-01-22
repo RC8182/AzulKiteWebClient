@@ -1,6 +1,8 @@
 import Navbar from "@/components/navbar/Navbar";
 import Footer from "@/components/footer/Footer";
 import { getCategories } from "@/actions/category-actions";
+import { getGlobalData } from "@/actions/global-actions";
+import { WindSocketProvider } from "@/components/navbar/wind-context/WindSocketContext";
 
 export default async function ClientLayout({
     children,
@@ -10,13 +12,22 @@ export default async function ClientLayout({
     params: Promise<{ lang: string }>;
 }) {
     const { lang } = await params;
-    const categories = await getCategories(lang);
+
+    // Skip global fetch for invalid routes (like browser-internal requests)
+    if (lang === 'favicon.ico' || lang.includes('.')) {
+        return <>{children}</>;
+    }
+
+    const [categories, globalData] = await Promise.all([
+        getCategories(lang),
+        getGlobalData(lang)
+    ]);
 
     return (
-        <>
+        <WindSocketProvider>
             <Navbar lang={lang} categories={categories} />
             {children}
-            <Footer lang={lang} />
-        </>
+            <Footer lang={lang} customDescription={globalData?.footerText} />
+        </WindSocketProvider>
     );
 }

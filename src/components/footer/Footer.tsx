@@ -6,14 +6,36 @@ import { Facebook, Instagram, Youtube, MapPin, Mail, Phone, ArrowUp } from 'luci
 
 interface FooterProps {
     lang: string;
+    customDescription?: string;
 }
 
-export default function Footer({ lang }: FooterProps) {
+export default function Footer({ lang, customDescription }: FooterProps) {
     const t = dictionary[lang as keyof typeof dictionary]?.footer || dictionary['es'].footer;
     const year = new Date().getFullYear();
 
     const scrollToTop = () => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    // Links usando traducciones del diccionario y slugs en inglés
+    const footerLinks = {
+        empresa: [
+            { label: t.company.contact, href: '/contact' },
+            { label: t.company.about, href: '/about' },
+            { label: t.company.legal, href: '/legal' },
+            { label: t.company.cookies, href: '/cookies' },
+            { label: t.company.payment, href: '/payment' },
+            { label: t.company.refunds, href: '/return-policy' }
+        ],
+        legal: [
+            { label: t.legal.terms, href: '/terms' },
+            { label: t.legal.privacy, href: '/privacy' }
+        ],
+        shop: [
+            { label: t.products.shop, href: '/shop' },
+            { label: t.products.outlet, href: '/shop?category=outlet' },
+            { label: t.products.newSeason, href: '/shop?category=new-season' }
+        ]
     };
 
     return (
@@ -31,7 +53,7 @@ export default function Footer({ lang }: FooterProps) {
                             </h2>
                         </Link>
                         <p className="text-white/60 text-sm leading-relaxed max-w-xs">
-                            El Médano, Tenerife. Tienda y escuela de Kitesurf y Wingfoil. Las mejores marcas y el mejor servicio.
+                            {customDescription || t.description}
                         </p>
                         <div className="flex gap-4 pt-2">
                             <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--color-accent)] transition-colors">
@@ -46,46 +68,61 @@ export default function Footer({ lang }: FooterProps) {
                         </div>
                     </div>
 
-                    {/* Products Column */}
+                    {/* Shop Column */}
                     <div>
                         <h3 className="font-bold text-lg mb-6">{t.products.title}</h3>
                         <ul className="space-y-3 text-sm text-white/70">
-                            <li><Link href={`/${lang}/category/kitesurf/cometas`} className="hover:text-[var(--color-accent)] transition-colors">{t.products.cometas}</Link></li>
-                            <li><Link href={`/${lang}/category/kitesurf/tablas`} className="hover:text-[var(--color-accent)] transition-colors">{t.products.tablas}</Link></li>
-                            <li><Link href={`/${lang}/category/wingfoil`} className="hover:text-[var(--color-accent)] transition-colors">{t.products.wingfoil}</Link></li>
-                            <li><Link href={`/${lang}/category/accesorios`} className="hover:text-[var(--color-accent)] transition-colors">{t.products.accesorios}</Link></li>
-                            <li><Link href={`/${lang}/category/outlet`} className="hover:text-[var(--color-accent)] transition-colors">{t.products.outlet}</Link></li>
-                            <li><Link href={`/${lang}/category/used`} className="hover:text-[var(--color-accent)] transition-colors">{t.products.usado}</Link></li>
+                            {footerLinks.shop.map((link) => (
+                                <li key={link.href}>
+                                    <Link 
+                                        href={`/${lang}${link.href}`} 
+                                        className="hover:text-[var(--color-accent)] transition-colors"
+                                    >
+                                        {link.label}
+                                    </Link>
+                                </li>
+                            ))}
                         </ul>
                     </div>
 
-                    {/* Company Column */}
+                    {/* Empresa Column */}
                     <div>
                         <h3 className="font-bold text-lg mb-6">{t.company.title}</h3>
                         <ul className="space-y-3 text-sm text-white/70">
-                            <li><Link href={`/${lang}/contact`} className="hover:text-[var(--color-accent)] transition-colors">{t.company.contact}</Link></li>
-                            <li><Link href={`/${lang}/about`} className="hover:text-[var(--color-accent)] transition-colors">{t.company.about}</Link></li>
-                            <li><Link href={`/${lang}/legal`} className="hover:text-[var(--color-accent)] transition-colors">{t.company.legal}</Link></li>
-                            <li><Link href={`/${lang}/cookies`} className="hover:text-[var(--color-accent)] transition-colors">{t.company.cookies}</Link></li>
-                            <li><Link href={`/${lang}/payment-methods`} className="hover:text-[var(--color-accent)] transition-colors">{t.company.payment}</Link></li>
-                            <li><Link href={`/${lang}/refunds`} className="hover:text-[var(--color-accent)] transition-colors">{t.company.refunds}</Link></li>
+                            {footerLinks.empresa.map((link) => (
+                                <li key={link.href}>
+                                    <Link 
+                                        href={`/${lang}${link.href}`} 
+                                        className="hover:text-[var(--color-accent)] transition-colors"
+                                    >
+                                        {link.label}
+                                    </Link>
+                                </li>
+                            ))}
                         </ul>
                     </div>
 
-                    {/* Account Column */}
+                    {/* Legal Column */}
                     <div>
-                        <h3 className="font-bold text-lg mb-6">{t.account.title}</h3>
+                        <h3 className="font-bold text-lg mb-6">{t.legal.title}</h3>
                         <ul className="space-y-3 text-sm text-white/70">
-                            <li><Link href={`/${lang}/account`} className="hover:text-[var(--color-accent)] transition-colors">{t.account.account}</Link></li>
-                            <li><Link href={`/${lang}/account/orders`} className="hover:text-[var(--color-accent)] transition-colors">{t.account.orders}</Link></li>
-                            <li><Link href={`/${lang}/account/addresses`} className="hover:text-[var(--color-accent)] transition-colors">{t.account.addresses}</Link></li>
+                            {footerLinks.legal.map((link) => (
+                                <li key={link.href}>
+                                    <Link 
+                                        href={`/${lang}${link.href}`} 
+                                        className="hover:text-[var(--color-accent)] transition-colors"
+                                    >
+                                        {link.label}
+                                    </Link>
+                                </li>
+                            ))}
                         </ul>
                     </div>
                 </div>
 
                 {/* Bottom Bar */}
                 <div className="pt-8 border-t border-white/10 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-white/40">
-                    <p>{t.copyright.replace('2024', year.toString())}</p>
+                    <p>{customDescription || `© ${year} Azul Kiteboarding. Todos los derechos reservados.`}</p>
 
                     <button
                         onClick={scrollToTop}

@@ -7,7 +7,7 @@ export async function fetchData(endpoint: string, query?: Record<string, any>) {
     const url = `${STRAPI_URL}/api/${endpoint}${queryString}`;
 
     const res = await fetch(url, {
-        next: { revalidate: 60 }, // ISR
+        cache: "no-store",
         headers: {
             "Content-Type": "application/json",
         },

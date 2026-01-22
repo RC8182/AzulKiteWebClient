@@ -47,7 +47,16 @@ export async function getCategoryBySlug(slug: string, locale: string = 'es') {
                     }
                 },
                 parent: true,
-                image: true
+                image: true,
+                blocks: {
+                    on: {
+                        'blocks.hero-slider': { populate: { slides: { populate: ['backgroundImage', 'buttons'] } } },
+                        'blocks.banner-grid': { populate: { banners: { populate: ['image', 'links'] } } },
+                        'blocks.hero-section': { populate: ['backgroundImage', 'cta'] },
+                        'blocks.info-block': { populate: '*' },
+                        'blocks.product-grid': { populate: { manualProducts: { populate: ['images'] }, selectedCategory: true } }
+                    }
+                }
             },
             locale,
         }, { encodeValuesOnly: true });

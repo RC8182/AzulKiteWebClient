@@ -25,7 +25,17 @@ export async function getProducts(page: number = 1, pageSize: number = 25, filte
                 page,
                 pageSize,
             },
-            populate: ['images', 'manuals'],
+            populate: {
+                images: { populate: '*' },
+                manuals: { populate: '*' },
+                categories: { populate: '*' },
+                saleInfo: { populate: '*' },
+                variants: {
+                    populate: {
+                        saleInfo: { populate: '*' }
+                    }
+                }
+            },
             locale,
             publicationState: 'preview',
         };
@@ -67,7 +77,17 @@ export async function getProducts(page: number = 1, pageSize: number = 25, filte
 export async function getProduct(id: string, locale: string = 'es') {
     try {
         const query = qs.stringify({
-            populate: ['images', 'manuals', 'localizations'],
+            populate: {
+                images: { populate: '*' },
+                manuals: { populate: '*' },
+                localizations: true,
+                saleInfo: { populate: '*' },
+                variants: {
+                    populate: {
+                        saleInfo: { populate: '*' }
+                    }
+                }
+            },
             locale,
         }, { encodeValuesOnly: true });
 
@@ -112,7 +132,16 @@ export async function getProductBySlug(slug: string, locale: string = 'es') {
                     $eq: slug,
                 },
             },
-            populate: ['images', 'manuals'],
+            populate: {
+                images: { populate: '*' },
+                manuals: { populate: '*' },
+                saleInfo: { populate: '*' },
+                variants: {
+                    populate: {
+                        saleInfo: { populate: '*' }
+                    }
+                }
+            },
             locale,
         };
 
@@ -216,17 +245,22 @@ export async function createProduct(formData: FormData) {
 
         // 3. Prepare common product data (Non-localized)
         const commonData = {
-            price: parseFloat(formData.get('price') as string),
-            stock: parseInt(formData.get('stock') as string),
+            price: parseFloat(formData.get('price') as string) || 0,
             categories: formData.getAll('categories').length > 0 ? formData.getAll('categories') : (formData.get('category') ? [formData.get('category')] : []),
             images: uploadedImageIds,
             manuals: uploadedManualIds,
             brand: formData.get('brand'),
             productNumber: formData.get('productNumber') || generateSKU(),
             slug: slugify(formData.get('name') as string),
-            colors: (formData.get('colors') as string)?.split(',').map(s => s.trim()).filter(Boolean) || [],
-            sizes: (formData.get('sizes') as string)?.split(',').map(s => s.trim()).filter(Boolean) || [],
             accessories: (formData.get('accessories') as string)?.split(',').map(s => s.trim()).filter(Boolean) || [],
+            saleInfo: {
+                type: formData.get('saleBadge') || 'None',
+                discountPercent: parseFloat(formData.get('discountPercent') as string) || 0,
+            },
+            variants: JSON.parse(formData.get('variants') as string || '[]').map((v: any) => ({
+                ...v,
+                saleInfo: v.saleInfo || { type: v.saleBadge || 'None', discountPercent: v.discountPercent || 0 }
+            })),
         };
 
         // 4. Create Base Product (ES - Default Locale)
@@ -334,17 +368,22 @@ export async function updateProduct(id: string, formData: FormData) {
 
         // 4. Prepare common data (Non-localized)
         const commonData = {
-            price: parseFloat(formData.get('price') as string),
-            stock: parseInt(formData.get('stock') as string),
+            price: parseFloat(formData.get('price') as string) || 0,
             categories: formData.getAll('categories').length > 0 ? formData.getAll('categories') : (formData.get('category') ? [formData.get('category')] : []),
             images: finalImageIds,
             manuals: finalManualIds,
             brand: formData.get('brand'),
             productNumber: formData.get('productNumber') || generateSKU(),
             slug: slugify(formData.get('name') as string),
-            colors: (formData.get('colors') as string)?.split(',').map(s => s.trim()).filter(Boolean) || [],
-            sizes: (formData.get('sizes') as string)?.split(',').map(s => s.trim()).filter(Boolean) || [],
             accessories: (formData.get('accessories') as string)?.split(',').map(s => s.trim()).filter(Boolean) || [],
+            saleInfo: {
+                type: formData.get('saleBadge') || 'None',
+                discountPercent: parseFloat(formData.get('discountPercent') as string) || 0,
+            },
+            variants: JSON.parse(formData.get('variants') as string || '[]').map((v: any) => ({
+                ...v,
+                saleInfo: v.saleInfo || { type: v.saleBadge || 'None', discountPercent: v.discountPercent || 0 }
+            })),
         };
 
         // Helper to upsert locale
@@ -594,5 +633,209 @@ export async function updateAIDescription(
     } catch (error: any) {
         console.error('Error updating AI description:', error);
         return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Bulk update products
+ */
+export async function bulkUpdateProducts(ids: string[], data: any) {
+    try {
+        const results = await Promise.all(ids.map(async (id) => {
+            const response = await fetch(`${STRAPI_URL}/api/products/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data }),
+            });
+            return { id, ok: response.ok };
+        }));
+
+        revalidatePath('/[lang]/dashboard/products', 'page');
+        const succeeded = results.filter(r => r.ok).length;
+        return { success: true, count: succeeded, total: ids.length };
+    } catch (error: any) {
+        console.error('Error bulk updating products:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Fetch products missing categories
+ */
+export async function getUncategorizedProducts(locale: string = 'es') {
+    try {
+        const query = qs.stringify({
+            filters: {
+                categories: {
+                    id: { $null: true }
+                }
+            },
+            populate: ['categories', 'images'],
+            locale
+        }, { encodeValuesOnly: true });
+
+        const response = await fetch(`${STRAPI_URL}/api/products?${query}`, {
+            cache: 'no-store'
+        });
+
+        if (!response.ok) throw new Error('Failed to fetch uncategorized products');
+
+        const data = await response.json();
+        return data.data;
+    } catch (error: any) {
+        console.error('Error fetching uncategorized products:', error);
+        return [];
+    }
+}
+
+/**
+ * Search products by query
+ */
+export async function searchProducts(query: string, locale: string = 'es', limit: number = 10) {
+    try {
+        if (!query || query.trim() === '') {
+            return { query: '', count: 0, products: [] };
+        }
+
+        const searchQuery = query.trim();
+        
+        // Usar filtros nativos de Strapi 5 para búsqueda eficiente
+        // $containsi es case-insensitive contains
+        const strapiQuery = qs.stringify({
+            locale,
+            pagination: {
+                pageSize: limit
+            },
+            publicationState: 'preview',
+            filters: {
+                $or: [
+                    { name: { $containsi: searchQuery } },
+                    { description: { $containsi: searchQuery } },
+                    { shortDescription: { $containsi: searchQuery } },
+                    { slug: { $containsi: searchQuery } }
+                ]
+            },
+            populate: {
+                images: { populate: '*' },
+                variants: { populate: ['saleInfo'] },
+                categories: { populate: '*' },
+                saleInfo: { populate: '*' }
+            }
+        }, { encodeValuesOnly: true });
+        
+        const url = `${STRAPI_URL}/api/products?${strapiQuery}`;
+        console.log('🔍 [searchProducts] URL:', url);
+        
+        const response = await fetch(url, {
+            cache: 'no-store',
+        });
+
+        console.log('📊 [searchProducts] Response status:', response.status);
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('❌ [searchProducts] Failed:', errorText);
+            throw new Error(`Failed to fetch products: ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        console.log('✅ [searchProducts] Found:', data.data?.length || 0, 'products from Strapi');
+        console.log('📦 [searchProducts] First product:', data.data?.[0]?.name || 'No products');
+        
+        return {
+            query: searchQuery,
+            count: data.data?.length || 0,
+            products: data.data || []
+        };
+    } catch (error: any) {
+        console.error('❌ [searchProducts] Error:', error.message);
+        return { query: '', count: 0, products: [] };
+    }
+}
+
+/**
+ * Get search suggestions for autocomplete
+ */
+export async function getSearchSuggestions(query: string, locale: string = 'es', limit: number = 5) {
+    try {
+        if (!query || query.trim() === '') {
+            return { query: '', suggestions: [] };
+        }
+
+        const searchQuery = query.trim();
+        
+        // Usar filtros nativos de Strapi para productos
+        const productsQuery = qs.stringify({
+            locale,
+            pagination: {
+                pageSize: limit
+            },
+            publicationState: 'preview',
+            filters: {
+                name: { $containsi: searchQuery }
+            },
+            populate: {
+                images: { populate: '*' },
+                categories: { populate: '*' }
+            }
+        }, { encodeValuesOnly: true });
+        
+        const productsUrl = `${STRAPI_URL}/api/products?${productsQuery}`;
+        
+        const productsResponse = await fetch(productsUrl, {
+            cache: 'no-store',
+        });
+
+        let filteredProducts: any[] = [];
+        if (productsResponse.ok) {
+            const productsData = await productsResponse.json();
+            filteredProducts = productsData.data || [];
+        }
+
+        // También obtener categorías con filtro nativo
+        const categoriesQuery = qs.stringify({
+            locale,
+            pagination: {
+                pageSize: limit
+            },
+            filters: {
+                name: { $containsi: searchQuery }
+            }
+        }, { encodeValuesOnly: true });
+        
+        const categoriesUrl = `${STRAPI_URL}/api/categories?${categoriesQuery}`;
+        const categoriesResponse = await fetch(categoriesUrl, {
+            cache: 'no-store',
+        });
+        
+        let filteredCategories: any[] = [];
+        if (categoriesResponse.ok) {
+            const categoriesData = await categoriesResponse.json();
+            filteredCategories = categoriesData.data || [];
+        }
+
+        const suggestions = [
+            ...filteredProducts.map((product: any) => ({
+                type: 'product',
+                name: product.name,
+                slug: product.slug,
+                url: `/products/${product.slug}`,
+            })),
+            ...filteredCategories.map((category: any) => ({
+                type: 'category',
+                name: category.name,
+                slug: category.slug,
+                url: `/category/${category.slug}`,
+            })),
+        ];
+
+        return {
+            query: searchQuery,
+            suggestions: suggestions.slice(0, limit),
+        };
+    } catch (error: any) {
+        console.error('Error getting search suggestions:', error);
+        return { query: '', suggestions: [] };
     }
 }

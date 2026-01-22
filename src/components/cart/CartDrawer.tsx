@@ -36,7 +36,12 @@ export default function CartDrawer({ isOpen, onClose, lang }: CartDrawerProps) {
         try {
             const { sessionId, error } = await createCheckoutSession({
                 customer_email: 'test@example.com',
-                products: items.map(item => ({ id: item.id, quantity: item.quantity })),
+                products: items.map(item => ({
+                    id: item.id,
+                    quantity: item.quantity,
+                    color: item.variant?.color,
+                    size: item.variant?.size
+                })),
             });
 
             if (error) throw new Error(error);
@@ -138,9 +143,16 @@ export default function CartDrawer({ isOpen, onClose, lang }: CartDrawerProps) {
                                                     <Plus size={12} />
                                                 </button>
                                             </div>
-                                            <p className="font-black text-sm text-[var(--color-accent)] italic">
-                                                {item.price * item.quantity}€
-                                            </p>
+                                            <div className="flex flex-col items-end">
+                                                {item.variant?.discount && item.variant.discount > 0 && item.variant.originalPrice && (
+                                                    <span className="text-[10px] text-gray-400 line-through mb-[-2px]">
+                                                        {(item.variant.originalPrice * item.quantity).toFixed(2)}€
+                                                    </span>
+                                                )}
+                                                <p className="font-black text-sm text-[var(--color-accent)] italic">
+                                                    {(item.price * item.quantity).toFixed(2)}€
+                                                </p>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

@@ -29,7 +29,10 @@ async function getPageData(slug: string, locale: string) {
                         },
                         'blocks.product-grid': {
                             populate: {
-                                products: {
+                                manualProducts: {
+                                    populate: '*'
+                                },
+                                selectedCategory: {
                                     populate: '*'
                                 }
                             }
@@ -39,6 +42,13 @@ async function getPageData(slug: string, locale: string) {
                         },
                         'blocks.info-block': {
                             populate: '*'
+                        },
+                        'blocks.scrolling-banner': {
+                            populate: {
+                                items: {
+                                    populate: ['image']
+                                }
+                            }
                         }
                     }
                 }
@@ -59,9 +69,6 @@ interface GenericPageProps {
 export default async function GenericPage({ params }: GenericPageProps) {
     const { lang, slug } = await params;
 
-    // We already have a specific route for checkout if needed, 
-    // but if the user wants it dynamic, it will work here too.
-    // However, we'll keep the specialized checkout page for cart logic.
     if (slug === 'checkout') return null;
 
     const page = await getPageData(slug, lang);
@@ -70,9 +77,21 @@ export default async function GenericPage({ params }: GenericPageProps) {
         notFound();
     }
 
+    const hasHero = page.blocks?.some((b: any) =>
+        b.__component === 'blocks.hero-section' || b.__component === 'blocks.hero-slider'
+    );
+
     return (
         <main className="min-h-screen">
-            {/* Optional: Add a title section if the page doesn't have a hero block */}
+            {!hasHero && page.title && (
+                <div className="bg-[#003366] text-white py-16 md:py-24">
+                    <div className="container mx-auto px-4">
+                        <h1 className="text-4xl md:text-6xl font-black uppercase tracking-tighter italic">
+                            {page.title}
+                        </h1>
+                    </div>
+                </div>
+            )}
             <BlockRenderer blocks={page.blocks} />
         </main>
     );

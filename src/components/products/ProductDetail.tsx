@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { ShoppingCart, Heart, Share2, Truck, Undo2, Check } from 'lucide-react';
 import { getStrapiMedia } from '@/lib/strapi';
 import { useCart } from '@/store/useCart';
+import { getDictionary, type Language } from './db';
 
 interface ProductDetailProps {
     product: any;
@@ -13,37 +14,61 @@ interface ProductDetailProps {
 
 export default function ProductDetail({ product, lang }: ProductDetailProps) {
     const { addItem } = useCart();
-    const { name, price, description_es, description_en, description_it, category, images, brand, productNumber, colors, sizes, accessories } = product;
+    const dict = getDictionary(lang as Language);
+    const { name, price: fallbackProductPrice, description_es, description_en, description_it, category: productCategory, images, brand, productNumber, variants = [], accessories = [], saleInfo: productSaleInfo = { type: 'None', discountPercent: 0 }, stock: productStock } = product;
 
     // Choose description based on language
     const description = lang === 'en' ? description_en : lang === 'it' ? description_it : description_es;
 
     const productImages = images?.data || images || [];
+    const productPrice = fallbackProductPrice || 0;
+
+    // Compute unique colors and sizes from variants
+    const availableColors = Array.from(new Set(variants.map((v: any) => v.color).filter(Boolean))) as string[];
+    const availableSizes = Array.from(new Set(variants.map((v: any) => v.size).filter(Boolean))) as string[];
+    const accessoryList = Array.isArray(accessories) ? accessories : (typeof accessories === 'string' ? (accessories as string).split(',').map(s => s.trim()).filter(Boolean) : []) as string[];
 
     // State
     const [selectedImage, setSelectedImage] = useState(0);
-    const [selectedColor, setSelectedColor] = useState(colors && colors.length > 0 ? colors[0] : null);
-    const [selectedSize, setSelectedSize] = useState(sizes && sizes.length > 0 ? sizes[0] : null);
+    const [selectedColor, setSelectedColor] = useState(availableColors.length > 0 ? availableColors[0] : null);
+    const [selectedSize, setSelectedSize] = useState(availableSizes.length > 0 ? availableSizes[0] : null);
     const [selectedAccessories, setSelectedAccessories] = useState<string[]>([]);
     const [quantity, setQuantity] = useState(1);
+
+    // Find current variant based on selection to get stock and price
+    const currentVariant = variants.find((v: any) => v.color === selectedColor && v.size === selectedSize);
+
+    // Logic: If variants exist, depend on variant stock. If not, use product-level stock.
+    const stock = variants.length > 0 ? (currentVariant?.stock ?? 0) : (productStock ?? 0);
+
+    // Price logic also needs similar fallback if no variants
+    const variantPrice = currentVariant?.price || productPrice || 0;
+    const variantSaleInfo = currentVariant?.saleInfo;
+    const variantDiscount = (variantSaleInfo?.discountPercent > 0) ? (variantSaleInfo.discountPercent || 0) : (productSaleInfo?.discountPercent || 0);
+    const finalPrice = variantDiscount > 0 ? variantPrice * (1 - variantDiscount / 100) : variantPrice;
+
+    const activeBadge = (variantSaleInfo?.type && variantSaleInfo.type !== 'None') ? variantSaleInfo.type : (productSaleInfo?.type || 'None');
+
 
     const mainImageUrl = getStrapiMedia(productImages[selectedImage]?.attributes?.url || productImages[selectedImage]?.url) || "https://placehold.co/800x800?text=No+Image";
 
     const handleAddToCart = () => {
+        if (stock === 0) return;
         addItem({
             id: product.documentId || product.id,
-            name,
-            price,
-            category,
+            name: name,
+            price: finalPrice,
+            category: productCategory,
             image: getStrapiMedia(productImages[0]?.attributes?.url || productImages[0]?.url) || "",
             // Additional info for cart item
             variant: {
                 color: selectedColor,
                 size: selectedSize,
-                accessories: selectedAccessories
+                accessories: selectedAccessories,
+                originalPrice: variantPrice,
+                discount: variantDiscount
             }
         }, quantity);
-        // You could add a toast here
     };
 
     const toggleAccessory = (acc: string) => {
@@ -83,7 +108,7 @@ export default function ProductDetail({ product, lang }: ProductDetailProps) {
                                 <div
                                     key={img.id || idx}
                                     onClick={() => setSelectedImage(idx)}
-                                    className={`relative w-20 h-20 md:w-24 md:h-24 rounded-xl overflow-hidden cursor-pointer border-2 transition-all bg-gray-50 flex-shrink-0 ${selectedImage === idx ? 'border-[#0072f5]' : 'border-transparent hover:border-gray-200'
+                                    className={`relative w-23 h-23 md:w-24 md:h-24 rounded-xl overflow-hidden cursor-pointer border-2 transition-all bg-gray-50 flex-shrink-0 ${selectedImage === idx ? 'border-[#0072f5]' : 'border-transparent hover:border-gray-200'
                                         }`}
                                 >
                                     <Image
@@ -109,25 +134,37 @@ export default function ProductDetail({ product, lang }: ProductDetailProps) {
                     </div>
 
                     <div className="flex items-center gap-4 mt-6">
-                        <span className="text-4xl md:text-5xl font-black text-[#FF6600]">
-                            {price}€
-                        </span>
                         <div className="flex flex-col">
-                            <span className="text-xs text-gray-400 font-bold uppercase tracking-widest">Incl. VAT</span>
-                            <span className="text-xs text-[#0072f5] font-bold underline cursor-pointer">Envío calculado en checkout</span>
+                            {(activeBadge !== 'None' || variantDiscount > 0) && (
+                                <div className="flex items-center gap-2">
+                                    <span className="text-lg font-bold text-gray-400 line-through">
+                                        {variantPrice.toFixed(2)}€
+                                    </span>
+                                    <span className="bg-[#FF6600] text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase shadow-sm">
+                                        {variantDiscount > 0 ? `-${variantDiscount}%` : activeBadge}
+                                    </span>
+                                </div>
+                            )}
+                            <span className="text-4xl md:text-5xl font-black text-[#003366] italic tracking-tighter">
+                                {finalPrice.toFixed(2)}€
+                            </span>
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-xs text-gray-400 font-bold uppercase tracking-widest">{dict.product.stock.inclVat}</span>
+                            <span className="text-xs text-[#0072f5] font-bold underline cursor-pointer hover:text-[#005bb5] transition-colors">{dict.product.stock.shippingCalc}</span>
                         </div>
                     </div>
                 </div>
 
                 <div className="space-y-8">
                     {/* Selection - Colors */}
-                    {colors && colors.length > 0 && (
+                    {availableColors.length > 0 && (
                         <div className="space-y-3">
                             <label className="text-sm font-black text-[#003366] uppercase tracking-widest flex items-center gap-2">
-                                Color: <span className="text-[#0072f5]">{selectedColor}</span>
+                                {dict.product.color}: <span className="text-[#0072f5]">{selectedColor}</span>
                             </label>
                             <div className="flex flex-wrap gap-2">
-                                {colors.map((color: string) => (
+                                {availableColors.map((color: any) => (
                                     <button
                                         key={color}
                                         onClick={() => setSelectedColor(color)}
@@ -144,13 +181,13 @@ export default function ProductDetail({ product, lang }: ProductDetailProps) {
                     )}
 
                     {/* Selection - Sizes */}
-                    {sizes && sizes.length > 0 && (
+                    {availableSizes.length > 0 && (
                         <div className="space-y-3">
                             <label className="text-sm font-black text-[#003366] uppercase tracking-widest flex items-center gap-2">
-                                Medida: <span className="text-[#0072f5]">{selectedSize}</span>
+                                {dict.product.size}: <span className="text-[#0072f5]">{selectedSize}</span>
                             </label>
                             <div className="flex flex-wrap gap-2">
-                                {sizes.map((size: string) => (
+                                {availableSizes.map((size: any) => (
                                     <button
                                         key={size}
                                         onClick={() => setSelectedSize(size)}
@@ -167,13 +204,13 @@ export default function ProductDetail({ product, lang }: ProductDetailProps) {
                     )}
 
                     {/* Selection - Accessories */}
-                    {accessories && accessories.length > 0 && (
+                    {accessoryList.length > 0 && (
                         <div className="space-y-3">
                             <label className="text-sm font-black text-[#003366] uppercase tracking-widest">
-                                Accesorios
+                                {dict.product.accessories}
                             </label>
                             <div className="space-y-2">
-                                {accessories.map((acc: string) => (
+                                {accessoryList.map((acc: any) => (
                                     <div
                                         key={acc}
                                         onClick={() => toggleAccessory(acc)}
@@ -196,8 +233,10 @@ export default function ProductDetail({ product, lang }: ProductDetailProps) {
 
                     {/* Stock Status */}
                     <div className="flex items-center gap-3 py-2">
-                        <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse"></div>
-                        <span className="text-sm font-bold text-green-700">Listo para enviar, 2-5 días laborables</span>
+                        <div className={`w-3 h-3 rounded-full animate-pulse ${stock > 0 ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                        <span className={`text-sm font-bold ${stock > 0 ? 'text-green-700' : 'text-red-700'}`}>
+                            {stock > 0 ? `${dict.product.stock.inStock} (${stock} ${dict.product.stock.units}), ${dict.product.stock.shipping}` : dict.product.stock.outOfStock}
+                        </span>
                     </div>
 
                     {/* Actions */}
@@ -206,7 +245,7 @@ export default function ProductDetail({ product, lang }: ProductDetailProps) {
                             <div className="flex items-center border-2 border-gray-100 rounded-2xl px-4 py-2">
                                 <button
                                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                                    className="text-gray-400 font-black hover:text-[#003366] px-2"
+                                    className="text-gray-400 font-black hover:text-[#003366] px-2 transition-colors"
                                 >-</button>
                                 <input
                                     type="number"
@@ -216,38 +255,38 @@ export default function ProductDetail({ product, lang }: ProductDetailProps) {
                                 />
                                 <button
                                     onClick={() => setQuantity(quantity + 1)}
-                                    className="text-gray-400 font-black hover:text-[#003366] px-2"
+                                    className="text-gray-400 font-black hover:text-[#003366] px-2 transition-colors"
                                 >+</button>
                             </div>
                             <button
                                 onClick={handleAddToCart}
-                                className="flex-grow flex items-center justify-center gap-3 bg-[#FF6600] text-white rounded-2xl px-8 py-4 font-black text-lg hover:bg-[#e65c00] transition-colors shadow-lg shadow-[#FF6600]/20 active:scale-95 duration-200"
+                                className="flex-grow flex items-center justify-center gap-3 bg-[#FF6600] text-white rounded-2xl px-8 py-4 font-black text-lg hover:bg-[#e65c00] transition-colors shadow-lg shadow-[#FF6600]/20 active:scale-95 duration-200 uppercase tracking-tight"
                             >
                                 <ShoppingCart size={24} />
-                                Añadir al Carrito
+                                {dict.product.actions.addToCart}
                             </button>
                         </div>
-                        <button className="w-full bg-[#003366] text-white rounded-2xl px-8 py-4 font-black text-lg hover:bg-[#002244] transition-colors shadow-lg shadow-[#003366]/20 active:scale-95 duration-200">
-                            Comprar Ahora
+                        <button className="w-full bg-[#003366] text-white rounded-2xl px-8 py-4 font-black text-lg hover:bg-[#002244] transition-colors shadow-lg shadow-[#003366]/20 active:scale-95 duration-200 uppercase tracking-tight">
+                            {dict.product.actions.buyNow}
                         </button>
                     </div>
 
                     {/* Secondary Actions */}
                     <div className="flex items-center justify-center gap-8 py-4 border-t border-gray-100 mt-4">
-                        <button className="flex items-center gap-2 text-xs font-bold text-gray-400 hover:text-[#003366] transition-colors">
+                        <button className="flex items-center gap-2 text-xs font-bold text-gray-400 hover:text-[#003366] transition-colors uppercase tracking-wider">
                             <Heart size={16} />
-                            Lista de Deseos
+                            {dict.product.actions.wishlist}
                         </button>
-                        <button className="flex items-center gap-2 text-xs font-bold text-gray-400 hover:text-[#003366] transition-colors">
+                        <button className="flex items-center gap-2 text-xs font-bold text-gray-400 hover:text-[#003366] transition-colors uppercase tracking-wider">
                             <Share2 size={16} />
-                            Compartir
+                            {dict.product.actions.share}
                         </button>
                     </div>
 
                     {/* Product meta */}
                     {productNumber && (
                         <div className="text-[10px] text-gray-300 font-bold uppercase tracking-widest text-center">
-                            Product Number: {productNumber}
+                            {dict.product.sku}: {productNumber}
                         </div>
                     )}
                 </div>

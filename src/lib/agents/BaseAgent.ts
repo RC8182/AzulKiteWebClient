@@ -12,6 +12,69 @@ export abstract class BaseAgent {
         }
     }
 
+    // Truncate large tool results to prevent context overflow
+    private truncateToolResult(result: any, maxLength: number = 5000): string {
+        const stringified = JSON.stringify(result);
+        if (stringified.length <= maxLength) {
+            return stringified;
+        }
+
+        // If it's an array, show count and sample
+        if (Array.isArray(result)) {
+            const sample = result.slice(0, 3);
+            return JSON.stringify({
+                _truncated: true,
+                total_items: result.length,
+                sample: sample,
+                message: `Showing 3 of ${result.length} items. Use filters or pagination for more.`
+            });
+        }
+
+        // Otherwise just truncate the string
+        return stringified.substring(0, maxLength) + '... [TRUNCATED]';
+    }
+
+    // Keep only the most recent conversation turns to prevent overflow
+    private pruneHistory(messages: AgentMessage[]): AgentMessage[] {
+        const MAX_HISTORY_MESSAGES = 10; // Keep last 10 turns
+        const systemMessages = messages.filter(m => m.role === 'system');
+        const nonSystemMessages = messages.filter(m => m.role !== 'system');
+
+        if (nonSystemMessages.length <= MAX_HISTORY_MESSAGES) {
+            return messages;
+        }
+
+        // Keep system + last N messages
+        let prunedMessages = [...systemMessages, ...nonSystemMessages.slice(-MAX_HISTORY_MESSAGES)];
+
+        // CRITICAL: Ensure no orphaned tool messages
+        // Tool messages must always follow an assistant message with tool_calls
+        const validatedMessages: AgentMessage[] = [];
+        let lastAssistantHadToolCalls = false;
+
+        for (const msg of prunedMessages) {
+            if (msg.role === 'assistant') {
+                lastAssistantHadToolCalls = !!msg.metadata?.tool_calls;
+                validatedMessages.push(msg);
+            } else if (msg.role === 'tool') {
+                // Only include tool messages if they follow an assistant with tool_calls
+                if (lastAssistantHadToolCalls) {
+                    validatedMessages.push(msg);
+                }
+                // If we've processed all tool responses, reset the flag
+                // (This is a simple heuristic - in practice, we'd need to track tool_call_ids)
+            } else {
+                // User or system messages reset the tool call context
+                if (msg.role === 'user') {
+                    lastAssistantHadToolCalls = false;
+                }
+                validatedMessages.push(msg);
+            }
+        }
+
+        return validatedMessages;
+    }
+
     protected async callLLM(messages: AgentMessage[], temperature: number = 0.7, useTools: boolean = true): Promise<string> {
         const apiKey = process.env.DEEPSEEK_API_KEY;
         const apiUrl = 'https://api.deepseek.com/v1/chat/completions';
@@ -40,7 +103,9 @@ export abstract class BaseAgent {
             });
         };
 
-        const formattedMessages = formatMessages(messages);
+        // Prune history before formatting to prevent overflow
+        const prunedMessages = this.pruneHistory(messages);
+        const formattedMessages = formatMessages(prunedMessages);
 
         const body: any = {
             model: 'deepseek-chat',
@@ -91,11 +156,14 @@ export abstract class BaseAgent {
                         const args = JSON.parse(toolCall.function.arguments);
                         const result = await tool.execute(args);
 
+                        // Truncate large results to prevent context overflow
+                        const truncatedResult = this.truncateToolResult(result);
+
                         const toolMsg: AgentMessage = {
                             role: 'tool',
                             tool_call_id: toolCall.id,
                             name: toolCall.function.name,
-                            content: JSON.stringify(result),
+                            content: truncatedResult,
                             timestamp: Date.now()
                         };
 
@@ -117,7 +185,7 @@ export abstract class BaseAgent {
 
             // Call LLM again with tool results
             // We use the same message history but including the new tool results
-            return this.callLLM([...messages, {
+            return this.callLLM([...prunedMessages, {
                 role: 'assistant',
                 content: assistantMessage.content || '',
                 timestamp: Date.now(),

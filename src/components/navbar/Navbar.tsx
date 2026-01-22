@@ -32,7 +32,7 @@ export default function Navbar({ lang, categories }: NavbarProps) {
             <CategoryNav lang={lang} categories={categories} />
 
             {/* Drawers (Native Implementation) */}
-            <MobileDrawer lang={lang} isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
+            <MobileDrawer lang={lang} isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} categories={categories} />
             <CartDrawer lang={lang} isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
         </>
     );

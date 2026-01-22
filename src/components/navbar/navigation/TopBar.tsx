@@ -5,31 +5,20 @@ import { useEffect, useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { dictionary } from '../db';
 import { usePathname, useRouter } from 'next/navigation';
+import { useWindSocket, getWindDirectionText } from '../wind-context/WindSocketContext';
 
 interface TopBarProps {
     lang: string;
 }
 
 export default function TopBar({ lang }: TopBarProps) {
-    const [windSpeed, setWindSpeed] = useState<number | null>(null);
+    const { windSpeed, windGust, windDirection, status } = useWindSocket();
     const [isLangOpen, setIsLangOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const router = useRouter();
     const pathname = usePathname();
 
     const t = dictionary[lang as keyof typeof dictionary]?.topBar || dictionary['es'].topBar;
-
-    // Simulation of live wind data fetching
-    useEffect(() => {
-        const fetchWind = () => {
-            const mockSpeed = Math.floor(Math.random() * (25 - 15 + 1)) + 15;
-            setWindSpeed(mockSpeed);
-        };
-
-        fetchWind();
-        const interval = setInterval(fetchWind, 60000);
-        return () => clearInterval(interval);
-    }, []);
 
     // Close dropdown on click outside
     useEffect(() => {
@@ -56,14 +45,29 @@ export default function TopBar({ lang }: TopBarProps) {
             <div className="max-w-[1440px] mx-auto px-4 flex items-center justify-between gap-4">
 
                 {/* Left: Live Wind */}
-                <div className="flex items-center gap-1.5 bg-white/5 px-2 py-0.5 rounded-full border border-white/10 whitespace-nowrap shrink-0">
-                    <Wind size={12} className="text-[var(--color-accent)] animate-pulse" />
+                <a 
+                    href="https://canarywindreport.com" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 bg-white/5 px-2 py-0.5 rounded-full border border-white/10 whitespace-nowrap shrink-0 hover:bg-white/10 transition-colors"
+                >
+                    <Wind size={12} className={`${status === 'connected' ? 'text-green-400 animate-pulse' : status === 'polling' ? 'text-yellow-400' : 'text-red-400'}`} />
                     <span className="uppercase tracking-tighter text-[9px] hidden sm:inline opacity-70">{t.wind}</span>
                     <span className="font-bold text-[9px] md:text-[10px]">{t.location}</span>
                     <span className="text-[var(--color-accent)] font-black text-[10px] md:text-[11px]">
                         {windSpeed !== null ? `${windSpeed} kts` : '-- kts'}
+                        {windGust !== null && windSpeed !== null && windGust > windSpeed && (
+                            <span className="text-[var(--color-accent)]">
+                                / {windGust}kts
+                            </span>
+                        )}
+                        {windDirection !== null && (
+                            <span className="text-[var(--color-accent)] ml-1">
+                                {getWindDirectionText(windDirection)} {windDirection}º
+                            </span>
+                        )}
                     </span>
-                </div>
+                </a>
 
                 {/* Center: Scrolling Banner */}
                 <div className="flex-1 overflow-hidden relative h-4 flex items-center justify-center max-w-[350px] mx-auto">

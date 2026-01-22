@@ -26,11 +26,17 @@ export async function generateMetadata({ params }: { params: Promise<{ lang: str
         template: `%s | ${siteName}`,
       },
       description: globalData?.data?.footerText || "La mejor tienda y escuela de kitesurf.",
+      icons: {
+        icon: "/logo_azul.jpg",
+      },
     };
   } catch (error) {
     return {
       title: "Azul Kiteboarding | Tienda & Escuela",
       description: "La mejor tienda y escuela de kitesurf. Productos premium y clases personalizadas.",
+      icons: {
+        icon: "/logo_azul.jpg",
+      },
     };
   }
 }

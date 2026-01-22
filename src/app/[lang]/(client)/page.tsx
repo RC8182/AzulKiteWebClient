@@ -29,7 +29,10 @@ async function getPageData(slug: string, locale: string) {
             },
             'blocks.product-grid': {
               populate: {
-                products: {
+                manualProducts: {
+                  populate: '*'
+                },
+                selectedCategory: {
                   populate: '*'
                 }
               }
@@ -39,6 +42,13 @@ async function getPageData(slug: string, locale: string) {
             },
             'blocks.info-block': {
               populate: '*'
+            },
+            'blocks.scrolling-banner': {
+              populate: {
+                items: {
+                  populate: ['image']
+                }
+              }
             }
           }
         }
@@ -49,6 +59,16 @@ async function getPageData(slug: string, locale: string) {
 
     if (data?.data?.length > 0) {
       console.log(`[getPageData] Page ID: ${data.data[0].id}, DocumentID: ${data.data[1]?.documentId || data.data[0].documentId}`);
+
+      // DEBUG: Inspect product-grid blocks
+      const gridBlocks = data.data[0].blocks.filter((b: any) => b.__component === 'blocks.product-grid');
+      gridBlocks.forEach((b: any, i: number) => {
+        console.log(`[getPageData] ProductGrid Block ${i}:`, JSON.stringify({
+          layout: b.layout,
+          productsCount: b.products?.data?.length || b.products?.length || 0,
+          showFilters: b.showFilters
+        }, null, 2));
+      });
     }
 
     return data?.data?.[0];

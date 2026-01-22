@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getDictionary, type Language } from './db';
 import { createProduct, updateProduct } from '@/actions/product-actions';
+import { getCategories } from '@/actions/category-actions';
 import ImageUploader from './ImageUploader';
 import ManualUploader from './ManualUploader';
 import { Save, X } from 'lucide-react';
@@ -25,17 +26,18 @@ export default function ProductForm({ lang, product }: ProductFormProps) {
         name: attributes.name || '',
         category: attributes.category || 'Kites',
         price: attributes.price || '',
-        stock: attributes.stock || '',
         shortDescription: attributes.shortDescription || '',
         description_es: attributes.description_es || '',
         description_en: attributes.description_en || '',
         description_it: attributes.description_it || '',
         brand: attributes.brand || '',
         productNumber: attributes.productNumber || '',
-        colors: Array.isArray(attributes.colors) ? attributes.colors.join(', ') : '',
-        sizes: Array.isArray(attributes.sizes) ? attributes.sizes.join(', ') : '',
         accessories: Array.isArray(attributes.accessories) ? attributes.accessories.join(', ') : '',
+        saleBadge: attributes.saleBadge || 'None',
+        discountPercent: attributes.discountPercent || '',
     });
+
+    const [variants, setVariants] = useState<any[]>(attributes.variants || []);
 
     const [newImages, setNewImages] = useState<File[]>([]);
     const [removedImageIds, setRemovedImageIds] = useState<number[]>([]);
@@ -43,12 +45,44 @@ export default function ProductForm({ lang, product }: ProductFormProps) {
     const [newManuals, setNewManuals] = useState<File[]>([]);
     const [removedManualIds, setRemovedManualIds] = useState<number[]>([]);
 
+    const [categories, setCategories] = useState<any[]>([]);
     const [activeTab, setActiveTab] = useState<'es' | 'en' | 'it'>('es');
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    useEffect(() => {
+        const fetchCategories = async () => {
+            const cats = await getCategories();
+            setCategories(cats);
+        };
+        fetchCategories();
+    }, []);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         setFormData((prev) => ({ ...prev, [name]: value }));
+    };
+
+    const handleVariantChange = (index: number, field: string, value: string | number) => {
+        const newVariants = [...variants];
+        newVariants[index] = { ...newVariants[index], [field]: value };
+        setVariants(newVariants);
+    };
+
+    const addVariant = () => {
+        setVariants([...variants, {
+            color: '',
+            size: '',
+            stock: 0,
+            price: formData.price,
+            saleInfo: {
+                type: formData.saleBadge,
+                discountPercent: formData.discountPercent
+            }
+        }]);
+    };
+
+    const removeVariant = (index: number) => {
+        setVariants(variants.filter((_, i) => i !== index));
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -60,6 +94,9 @@ export default function ProductForm({ lang, product }: ProductFormProps) {
         Object.entries(formData).forEach(([key, value]) => {
             if (value) formDataToSend.append(key, value.toString());
         });
+
+        // Append variants as JSON string
+        formDataToSend.append('variants', JSON.stringify(variants));
 
         // Append new files
         newImages.forEach(file => formDataToSend.append('newImages', file));
@@ -101,7 +138,6 @@ export default function ProductForm({ lang, product }: ProductFormProps) {
         setRemovedManualIds(prev => [...prev, id]);
     };
 
-    const categories = ['Kites', 'Boards', 'Harnesses', 'Wetsuits', 'Accessories'];
 
     // Filter out removed images/manuals for display
     const imagesData = attributes.images?.data || attributes.images || [];
@@ -147,40 +183,18 @@ export default function ProductForm({ lang, product }: ProductFormProps) {
                                         required
                                         className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                                     >
+                                        <option value="">Selecciona una categoría</option>
                                         {categories.map((cat) => (
-                                            <option key={cat} value={cat}>
-                                                {dict[cat.toLowerCase() as keyof typeof dict] || cat}
+                                            <option key={cat.id} value={cat.documentId}>
+                                                {cat.name}
                                             </option>
                                         ))}
                                     </select>
                                 </div>
 
-                                <div>
-                                    <label className="block text-sm font-medium mb-2">{dict.productPrice}</label>
-                                    <input
-                                        type="number"
-                                        name="price"
-                                        value={formData.price}
-                                        onChange={handleChange}
-                                        required
-                                        step="0.01"
-                                        min="0"
-                                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                                    />
+                                <div className="invisible">
+                                    {/* Price removed as per user request */}
                                 </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium mb-2">{dict.productStock}</label>
-                                <input
-                                    type="number"
-                                    name="stock"
-                                    value={formData.stock}
-                                    onChange={handleChange}
-                                    required
-                                    min="0"
-                                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                                />
                             </div>
 
                             <div>
@@ -222,27 +236,139 @@ export default function ProductForm({ lang, product }: ProductFormProps) {
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium mb-2">Colores (separados por coma)</label>
-                                    <input
-                                        type="text"
-                                        name="colors"
-                                        value={formData.colors}
+                                    <label className="block text-sm font-medium mb-2">Etiqueta de Oferta (Sale Badge)</label>
+                                    <select
+                                        name="saleBadge"
+                                        value={formData.saleBadge}
                                         onChange={handleChange}
                                         className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                                        placeholder="Ej: Blue, Red, Green"
-                                    />
+                                    >
+                                        <option value="None">Sin oferta</option>
+                                        <option value="Black Friday">Black Friday</option>
+                                        <option value="Sales">Rebajas (Sales)</option>
+                                        <option value="Winter Sales">Winter Sales</option>
+                                        <option value="Summer Sales">Summer Sales</option>
+                                        <option value="Christmas Sales">Christmas Sales</option>
+                                    </select>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium mb-2">Medidas/Tallas (separadas por coma)</label>
+                                    <label className="block text-sm font-medium mb-2">Descuento Global (%)</label>
                                     <input
-                                        type="text"
-                                        name="sizes"
-                                        value={formData.sizes}
+                                        type="number"
+                                        name="discountPercent"
+                                        value={formData.discountPercent}
                                         onChange={handleChange}
+                                        placeholder="Ej: 15"
+                                        min="0"
+                                        max="100"
                                         className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                                        placeholder="Ej: 7m, 9m, 12m o S, M, L"
                                     />
                                 </div>
+                            </div>
+
+                            {/* Variants Management */}
+                            <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h3 className="text-lg font-medium">Variantes (Color, Medida y Stock)</h3>
+                                    <button
+                                        type="button"
+                                        onClick={addVariant}
+                                        className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
+                                    >
+                                        + Añadir Variante
+                                    </button>
+                                </div>
+
+                                {variants.length > 0 ? (
+                                    <div className="space-y-3">
+                                        {variants.map((variant, index) => (
+                                            <div key={index} className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg border border-gray-100 dark:border-gray-600">
+                                                <div>
+                                                    <label className="block text-[10px] font-bold uppercase text-gray-400 mb-1">Color</label>
+                                                    <input
+                                                        type="text"
+                                                        value={variant.color}
+                                                        onChange={(e) => handleVariantChange(index, 'color', e.target.value)}
+                                                        className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                                                        placeholder="Azul, Rojo..."
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-[10px] font-bold uppercase text-gray-400 mb-1">Medida</label>
+                                                    <input
+                                                        type="text"
+                                                        value={variant.size}
+                                                        onChange={(e) => handleVariantChange(index, 'size', e.target.value)}
+                                                        className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                                                        placeholder="9m, L, 42..."
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-[10px] font-bold uppercase text-gray-400 mb-1">Precio</label>
+                                                    <input
+                                                        type="number"
+                                                        value={variant.price}
+                                                        onChange={(e) => handleVariantChange(index, 'price', parseFloat(e.target.value) || 0)}
+                                                        className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                                                        step="0.01"
+                                                        min="0"
+                                                    />
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <div>
+                                                        <label className="block text-[10px] font-bold uppercase text-gray-400 mb-1">Oferta</label>
+                                                        <select
+                                                            value={variant.saleInfo?.type || 'None'}
+                                                            onChange={(e) => handleVariantChange(index, 'saleInfo', { ...variant.saleInfo, type: e.target.value })}
+                                                            className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                                                        >
+                                                            <option value="None">Sin oferta</option>
+                                                            <option value="Black Friday">Black Friday</option>
+                                                            <option value="Sales">Rebajas</option>
+                                                            <option value="Winter Sales">Winter Sales</option>
+                                                            <option value="Summer Sales">Summer Sales</option>
+                                                            <option value="Christmas Sales">Christmas Sales</option>
+                                                        </select>
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-[10px] font-bold uppercase text-gray-400 mb-1">Desc %</label>
+                                                        <input
+                                                            type="number"
+                                                            value={variant.saleInfo?.discountPercent || 0}
+                                                            onChange={(e) => handleVariantChange(index, 'saleInfo', { ...variant.saleInfo, discountPercent: parseFloat(e.target.value) || 0 })}
+                                                            className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                                                            min="0"
+                                                            max="100"
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="flex-1">
+                                                        <label className="block text-[10px] font-bold uppercase text-gray-400 mb-1">Stock</label>
+                                                        <input
+                                                            type="number"
+                                                            value={variant.stock}
+                                                            onChange={(e) => handleVariantChange(index, 'stock', parseInt(e.target.value) || 0)}
+                                                            className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                                                            min="0"
+                                                        />
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeVariant(index)}
+                                                        className="p-1.5 text-red-500 hover:bg-red-50 rounded transition-colors"
+                                                    >
+                                                        <X size={18} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-8 bg-gray-50 dark:bg-gray-700/30 rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-600">
+                                        <p className="text-sm text-gray-500">No hay variantes configuradas. Añade una para empezar.</p>
+                                    </div>
+                                )}
                             </div>
 
                             <div>

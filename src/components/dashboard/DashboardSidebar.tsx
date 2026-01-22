@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { getDictionary, type Language } from './db';
-import { LayoutDashboard, Package, Settings, FileText } from 'lucide-react';
+import { LayoutDashboard, Package, Settings, FileText, Database, Bot } from 'lucide-react';
 
 interface DashboardSidebarProps {
     lang: string;
@@ -23,6 +23,16 @@ export default function DashboardSidebar({ lang }: DashboardSidebarProps) {
             name: dict.products,
             href: `/${lang}/dashboard/products`,
             icon: Package,
+        },
+        {
+            name: 'Control de Stock',
+            href: `/${lang}/dashboard/stock`,
+            icon: Database,
+        },
+        {
+            name: 'Asistente IA',
+            href: `/${lang}/dashboard/agent`,
+            icon: Bot,
         },
         {
             name: dict.settings,

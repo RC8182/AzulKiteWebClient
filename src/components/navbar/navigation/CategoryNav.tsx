@@ -10,28 +10,22 @@ interface CategoryNavProps {
 
 export default function CategoryNav({ lang, categories = [] }: CategoryNavProps) {
     // 1. Identify main categories (those whose parent is named "Shop" or has slug "shop")
-    // Or simpler: those that have subcategories or are meant to be in root.
-    // Based on bootstrap: Kitesurf, Wing & Foil, Accessories, Wetsuits are level 1.
-
-    const shopCat = categories.find(c => c.slug === 'shop');
-    const rootCategories = categories.filter(c => c.parent?.documentId === shopCat?.documentId);
+    const shopCat = categories.find(c => c.slug === 'shop' || c.slug === 'tienda');
+    const rootCategories = shopCat
+        ? categories.filter(c => c.parent?.documentId === shopCat?.documentId)
+        : categories.filter(c => !c.parent);
 
     const navigation = rootCategories.map(cat => {
-        const isCollections = cat.slug === 'collections';
-        const t = dictionary[lang as keyof typeof dictionary]?.nav || dictionary['es'].nav;
-
-        // If it's "Collections", we might want to name it "Deals" or "Ofertas"
-        const displayName = isCollections ? t.deals : cat.name;
+        const rootPath = cat.slug;
 
         return {
-            name: displayName,
-            href: `/${lang}/category/${cat.slug}`,
-            highlight: isCollections,
+            name: cat.name,
+            href: `/${lang}/${cat.slug}`,
             subcategories: categories
                 .filter(sub => sub.parent?.documentId === cat.documentId)
                 .map(sub => ({
                     name: sub.name,
-                    href: `/${lang}/category/${sub.slug}`
+                    href: `/${lang}/${rootPath}/${sub.slug}`
                 }))
         };
     });
@@ -67,10 +61,7 @@ export default function CategoryNav({ lang, categories = [] }: CategoryNavProps)
                             ) : (
                                 <a
                                     href={item.href}
-                                    className={`flex items-center h-8 px-5 font-bold tracking-widest text-[10px] transition-colors uppercase ${(item as any).highlight
-                                        ? 'text-[var(--color-accent)] hover:bg-[var(--color-accent)] hover:text-white'
-                                        : 'text-white hover:bg-white/10'
-                                        }`}
+                                    className="flex items-center h-8 px-5 font-bold tracking-widest text-[10px] transition-colors uppercase text-white hover:bg-white/10"
                                 >
                                     {item.name}
                                 </a>

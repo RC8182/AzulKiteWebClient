@@ -1,6 +1,5 @@
 import DashboardNavbar from '@/components/dashboard/DashboardNavbar';
 import DashboardSidebar from '@/components/dashboard/DashboardSidebar';
-import AgentChat from '@/components/dashboard/AgentChat';
 
 export default async function DashboardLayout({
     children,
@@ -29,9 +28,6 @@ export default async function DashboardLayout({
                     </main>
                 </div>
             </div>
-
-            {/* Global AI Agent Chat */}
-            <AgentChat role="product_agent" title="Product Assistant" />
         </div>
     );
 }

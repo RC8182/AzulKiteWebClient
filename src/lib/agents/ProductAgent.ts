@@ -1,7 +1,7 @@
 import { BaseAgent } from './BaseAgent';
 import { AgentContext, AgentResponse, AgentRole } from './types';
-import { generateWithContext } from '../rag';
-import { updateAIDescription } from '@/actions/product-actions';
+import { getProducts, getProduct, bulkUpdateProducts, getUncategorizedProducts } from '@/actions/product-actions';
+import { getCategories } from '@/actions/category-actions';
 
 export class ProductAgent extends BaseAgent {
     public readonly role: AgentRole = 'product_agent';
@@ -9,15 +9,30 @@ export class ProductAgent extends BaseAgent {
     private activeContext?: AgentContext;
 
     constructor() {
-        super(`Eres el Agente de Productos de Azul Kiteboarding. 
-Tu objetivo es ayudar a crear y optimizar productos en el eCommerce.
-Puedes procesar manuales técnicos (PDF), datos de WordPress, JSON o texto libre.
-REGLAS CRÍTICAS:
-1. Genera contenido de alta calidad. Si el sistema soporta i18n, asegúrate de proporcionar las traducciones necesarias (ES, EN, IT).
-2. NUNCA inventes información técnica, precios o colores si no los tienes. Pregunta al usuario.
-3. Si recibes una lista de productos (JSON/WordPress), usa la herramienta create_product para cada uno.
-4. Identifica campos faltantes como: precio, categoría, colores, tallas, o descripción técnica.
-5. Si recibes imágenes, menciónalas y confirma que las incluirás en la propuesta del producto.`);
+        super(`Eres el Agente Autónomo de Gestión de Catálogo de Azul Kiteboarding.
+Tu misión es mantener el inventario perfecto, categorizado y con descripciones de alta calidad en 3 idiomas (ES, EN, IT).
+
+AUTONOMÍA TOTAL:
+1. Tienes herramientas para LISTAR, VER y MODIFICAR productos. Úsalas proactivamente.
+2. Si el usuario te pide "organizar el catálogo", primero lista los productos sin categoría y luego aplícales las categorías correctas usando bulk_update.
+3. Si un producto no tiene descripción, gérala basándote en su nombre y marca, siempre en los 3 idiomas.
+4. Mantén el stock bajo control. Si ves stock bajo, avisa al usuario o ayúdale a actualizarlo.
+
+GESTIÓN DE CONTEXTO (IMPORTANTE):
+- Los resultados de herramientas están TRUNCADOS para evitar sobrecarga.
+- Si ves "_truncated: true", significa que hay MÁS datos disponibles.
+- Para ver más datos, usa el parámetro "page" (página 1, 2, 3...) en list_products.
+- Trabaja en LOTES PEQUEÑOS (máximo 10 productos a la vez).
+- Si hay 50 productos sin categoría, NO intentes categorizarlos todos de golpe.
+- Procesa en grupos de 5-10, informa al usuario del progreso, y continúa si te lo pide.
+- NUNCA uses parámetros "offset" - usa "page" y "pageSize" para paginación.
+
+REGLAS DE TRADUCCIÓN:
+- Español (ES): Natural, profesional, enfocado a Kite/Wing.
+- Inglés (EN): Global, técnico.
+- Italiano (IT): Elegante, preciso.
+
+NUNCA inventes precios o especificaciones técnicas críticas sin base. Consulta si tienes dudas.`);
 
         this.setupTools();
     }
@@ -27,69 +42,105 @@ REGLAS CRÍTICAS:
             list_categories: {
                 definition: {
                     name: 'list_categories',
-                    description: 'Obtener la lista de categorías permitidas para los productos.',
-                    parameters: {
-                        type: 'object',
-                        properties: {}
-                    }
+                    description: 'Obtener la lista real de categorías del sistema (nombre e ID).',
+                    parameters: { type: 'object', properties: {} }
                 },
                 execute: async () => {
-                    return ["Kites", "Boards", "Harnesses", "Wetsuits", "Accessories"];
+                    const cats = await getCategories();
+                    return cats.map((c: any) => ({ id: c.id, documentId: c.documentId, name: c.name }));
                 }
             },
-            create_product: {
+            list_products: {
                 definition: {
-                    name: 'create_product',
-                    description: 'Crear un nuevo producto en el sistema.',
+                    name: 'list_products',
+                    description: 'Listar productos con filtros opcionales y paginación. Usa "page" para navegar entre páginas.',
                     parameters: {
                         type: 'object',
                         properties: {
-                            name: { type: 'string', description: 'Nombre del producto' },
-                            price: { type: 'number', description: 'Precio en euros' },
-                            category: { type: 'string', description: 'Categoría (obtener de list_categories)' },
-                            stock: { type: 'number', description: 'Stock inicial' },
-                            description: { type: 'string', description: 'Descripción principal (ES)' },
-                            description_en: { type: 'string', description: 'Traducción al inglés' },
-                            description_it: { type: 'string', description: 'Traducción al italiano' },
-                            shortDescription: { type: 'string', description: 'Resumen corto (máx 200 caracteres)' },
-                            brand: { type: 'string', description: 'Marca del producto' },
-                            productNumber: { type: 'string', description: 'Código de producto o SKU' },
-                            colors: { type: 'array', items: { type: 'string' } },
-                            sizes: { type: 'array', items: { type: 'string' } },
-                        },
-                        required: ['name', 'price', 'category', 'description']
+                            onlyUncategorized: { type: 'boolean', description: 'Si es true, solo devuelve productos sin categoría definida.' },
+                            page: { type: 'number', default: 1, description: 'Número de página (empieza en 1)' },
+                            pageSize: { type: 'number', default: 10, description: 'Cantidad de productos por página (máximo 25)' }
+                        }
                     }
                 },
                 execute: async (args) => {
-                    try {
-                        const { createProduct } = await import('@/actions/product-actions');
-                        const formData = new FormData();
-
-                        // Append standard fields
-                        Object.entries(args).forEach(([key, value]) => {
-                            if (Array.isArray(value)) {
-                                formData.append(key, value.join(','));
-                            } else {
-                                formData.append(key, String(value));
-                            }
-                        });
-
-                        // Attach files from context if they match
-                        if (this.activeContext?.files) {
-                            for (const file of this.activeContext.files) {
-                                if (file.type.startsWith('image/')) {
-                                    formData.append('newImages', file);
-                                } else if (file.type === 'application/pdf') {
-                                    formData.append('newManuals', file);
+                    if (args.onlyUncategorized) {
+                        // For uncategorized, we return all at once (no pagination in this function)
+                        const allUncategorized = await getUncategorizedProducts();
+                        return {
+                            data: allUncategorized,
+                            total: allUncategorized.length,
+                            message: `Mostrando todos los ${allUncategorized.length} productos sin categorizar`
+                        };
+                    }
+                    const page = args.page || 1;
+                    const pageSize = Math.min(args.pageSize || 10, 25);
+                    const result = await getProducts(page, pageSize);
+                    return {
+                        data: result.data,
+                        pagination: result.meta?.pagination,
+                        message: `Página ${page} de productos (${pageSize} por página)`
+                    };
+                }
+            },
+            get_product_details: {
+                definition: {
+                    name: 'get_product_details',
+                    description: 'Obtener toda la información de un producto específico por su ID.',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            id: { type: 'string', description: 'El ID o documentId del producto.' }
+                        },
+                        required: ['id']
+                    }
+                },
+                execute: async (args) => {
+                    return await getProduct(args.id);
+                }
+            },
+            update_product: {
+                definition: {
+                    name: 'update_product',
+                    description: 'Actualizar campos de un producto (Categoría, Stock, Descripciones, etc).',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            id: { type: 'string', description: 'El documentId del producto.' },
+                            updates: {
+                                type: 'object',
+                                properties: {
+                                    categories: { type: 'array', items: { type: 'string' }, description: 'Lista de IDs (documentId) de categorías.' },
+                                    description: { type: 'string' },
+                                    description_en: { type: 'string' },
+                                    description_it: { type: 'string' },
+                                    price: { type: 'number' },
+                                    stock: { type: 'number' }
                                 }
                             }
-                        }
-
-                        const result = await createProduct(formData);
-                        return result;
-                    } catch (error) {
-                        return { success: false, error: String(error) };
+                        },
+                        required: ['id', 'updates']
                     }
+                },
+                execute: async (args) => {
+                    return await bulkUpdateProducts([args.id], args.updates);
+                }
+            },
+            bulk_update_products: {
+                definition: {
+                    name: 'bulk_update_products',
+                    description: 'Actualizar múltiples productos a la vez con los mismos cambios.',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            ids: { type: 'array', items: { type: 'string' }, description: 'Lista de documentIds.' },
+                            updates: { type: 'object', description: 'Campos a actualizar.' }
+                        },
+                        required: ['ids', 'updates']
+                    }
+                },
+                execute: async (args) => {
+                    return await bulkUpdateProducts(args.ids, args.updates);
                 }
             }
         };
@@ -99,22 +150,14 @@ REGLAS CRÍTICAS:
         this.activeContext = context;
         this.addToHistory({ role: 'user', content: message, timestamp: Date.now() });
 
-        // Check if message contains JSON or PDF content
-        const hasJson = message.includes('[Contenido del JSON:') || this.isLikelyJson(message);
-        const hasPdf = message.includes('[Contenido del PDF:');
-
         const prompt = `Contexto actual:
 Idioma: ${context.language}
-Producto ID: ${context.currentProductId || 'Nuevo'}
+Info Catálogo: ${JSON.stringify(context.catalogHealth || {})}
 
-Mensaje del usuario y contenido adjunto: 
+Mensaje del usuario: 
 ${message}
 
-${hasJson ? 'Analiza la información de los productos en formato JSON proporcionada. Si hay varios, prepáralos para su creación.' : ''}
-${hasPdf ? 'Usa la información extraída del PDF para completar las especificaciones técnicas del producto.' : ''}
-
-Responde de forma profesional. Si falta información crucial para crear el producto (precio, categoría, etc.), indícalo claramente.
-Si tienes suficiente información, genera una propuesta de descripción en los 3 idiomas (ES, EN, IT).`;
+Analiza si necesitas usar alguna herramienta para cumplir el objetivo. Si te piden organizar, empieza listando. Si te dan info de un manual, genera las descripciones y actualiza el producto.`;
 
         try {
             const responseContent = await this.callLLM([
@@ -125,50 +168,32 @@ Si tienes suficiente información, genera una propuesta de descripción en los 3
 
             this.addToHistory({ role: 'assistant', content: responseContent, timestamp: Date.now() });
 
-            // Analyze response for missing fields (simplified for now)
-            const missingFields = this.detectMissingFields(message);
-
             return {
+                role: 'assistant',
                 content: responseContent,
-                status: missingFields.length > 0 ? 'requires_info' : 'complete',
-                missingFields: missingFields.length > 0 ? missingFields : undefined,
+                timestamp: Date.now(),
+                status: 'complete',
                 suggestedActions: this.generateSuggestedActions(message, context)
             };
         } catch (error) {
             console.error('Error in ProductAgent:', error);
             return {
+                role: 'assistant',
                 content: `Lo siento, hubo un error procesando tu solicitud: ${error instanceof Error ? error.message : 'Error desconocido'}`,
+                timestamp: Date.now(),
                 status: 'error'
             };
         }
     }
 
-    private isLikelyJson(text: string): boolean {
-        const trimmed = text.trim();
-        return (trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'));
-    }
-
-    private detectMissingFields(text: string): string[] {
-        const missing = [];
-        const lowerText = text.toLowerCase();
-
-        if (!lowerText.includes('precio') && !lowerText.includes('$') && !lowerText.includes('€')) {
-            // missing.push('precio'); // This is a bit too simple, LLM should handle complex detection
-        }
-
-        // Let the LLM handle detection in its response, 
-        // but we can parse the response for specific markers if we want.
-        return [];
-    }
-
     private generateSuggestedActions(message: string, context: AgentContext) {
         const actions = [];
+        const lower = message.toLowerCase();
 
-        if (context.currentProductId) {
+        if (lower.includes('auditar') || lower.includes('organizar') || lower.includes('categorizar')) {
             actions.push({
-                label: 'Generar Descripción con RAG',
-                action: 'generate_rag',
-                payload: { productId: context.currentProductId }
+                label: 'Listar productos sin categoría',
+                action: 'list_uncategorized',
             });
         }
 

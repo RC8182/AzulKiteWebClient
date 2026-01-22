@@ -30,8 +30,12 @@ export default async function ProductPage({ params }: PageProps) {
                 <div className="container mx-auto px-4 py-4">
                     <nav className="flex items-center gap-2 text-xs font-medium text-gray-500 overflow-x-auto no-scrollbar whitespace-nowrap">
                         <Link href={`/${lang}`} className="hover:text-[#0072f5] transition-colors">Azul Kite</Link>
-                        <span>/</span>
-                        <Link href={`/${lang}/category/${category.toLowerCase()}`} className="hover:text-[#0072f5] transition-colors">{category}</Link>
+                        {category && (
+                            <>
+                                <span>/</span>
+                                <Link href={`/${lang}/${category.toLowerCase()}`} className="hover:text-[#0072f5] transition-colors">{category}</Link>
+                            </>
+                        )}
                         <span>/</span>
                         <span className="text-gray-900 font-bold truncate">{name}</span>
                     </nav>

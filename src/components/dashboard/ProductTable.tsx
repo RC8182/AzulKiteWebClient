@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { getDictionary, type Language } from './db';
 import { deleteProduct } from '@/actions/product-actions';
+import { getCategories } from '@/actions/category-actions';
 import { Edit, Trash2, Sparkles } from 'lucide-react';
 
 interface Product {
@@ -28,6 +29,15 @@ export default function ProductTable({ products, lang }: ProductTableProps) {
     const dict = getDictionary(lang as Language);
     const [searchTerm, setSearchTerm] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('');
+    const [categories, setCategories] = useState<any[]>([]);
+
+    useEffect(() => {
+        const fetchCategories = async () => {
+            const cats = await getCategories();
+            setCategories(cats);
+        };
+        fetchCategories();
+    }, []);
 
     const filteredProducts = products.filter((product) => {
         const attributes = product.attributes || (product as any);
@@ -41,7 +51,6 @@ export default function ProductTable({ products, lang }: ProductTableProps) {
         return matchesSearch && matchesCategory;
     });
 
-    const categories = ['Kites', 'Boards', 'Harnesses', 'Wetsuits', 'Accessories'];
 
     const handleDelete = async (documentId: string) => {
         if (confirm(dict.confirmDelete)) {
@@ -73,8 +82,8 @@ export default function ProductTable({ products, lang }: ProductTableProps) {
                     >
                         <option value="">{dict.allCategories}</option>
                         {categories.map((cat) => (
-                            <option key={cat} value={cat}>
-                                {dict[cat.toLowerCase() as keyof typeof dict] || cat}
+                            <option key={cat.id} value={cat.documentId}>
+                                {cat.name}
                             </option>
                         ))}
                     </select>
@@ -135,20 +144,48 @@ export default function ProductTable({ products, lang }: ProductTableProps) {
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                        <div className="text-sm font-medium text-gray-900 dark:text-white flex items-center gap-2">
                                             {name}
+                                            {attributes.saleBadge && attributes.saleBadge !== 'None' && (
+                                                <span className="text-[10px] px-2 py-0.5 bg-red-100 text-red-800 rounded font-bold uppercase">
+                                                    {attributes.saleBadge}
+                                                </span>
+                                            )}
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
-                                        <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                                            {dict[category.toLowerCase() as keyof typeof dict] || category}
-                                        </span>
+                                        <div className="flex flex-wrap gap-1">
+                                            {attributes.categories?.length > 0 ? (
+                                                attributes.categories.map((cat: any) => (
+                                                    <span key={cat.id} className="px-2 py-1 inline-flex text-[10px] leading-4 font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                                                        {cat.name}
+                                                    </span>
+                                                ))
+                                            ) : (
+                                                <span className="text-gray-400 text-[10px]">Sin categoría</span>
+                                            )}
+                                        </div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                                        €{price.toFixed(2)}
+                                        <div className="flex flex-col">
+                                            {attributes.saleInfo?.discountPercent > 0 && (
+                                                <span className="text-[10px] text-red-500 font-bold">-{attributes.saleInfo.discountPercent}%</span>
+                                            )}
+                                            <span>€{price.toFixed(2)}</span>
+                                            {attributes.variants?.length > 0 && attributes.variants.some((v: any) => v.price && v.price !== price) && (
+                                                <span className="text-[10px] text-gray-400">(Varios precios)</span>
+                                            )}
+                                        </div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                                        {stock}
+                                        {attributes.variants && attributes.variants.length > 0 ? (
+                                            <div className="flex flex-col">
+                                                <span>{attributes.variants.reduce((sum: number, v: any) => sum + (v.stock || 0), 0)}</span>
+                                                <span className="text-[10px] text-gray-400">({attributes.variants.length} variantes)</span>
+                                            </div>
+                                        ) : (
+                                            typeof attributes.stock === 'number' ? attributes.stock : 0
+                                        )}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         {aiGenerated && (

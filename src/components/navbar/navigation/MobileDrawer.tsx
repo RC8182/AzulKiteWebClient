@@ -3,59 +3,43 @@
 import { ChevronLeft, Wind, Plus, Minus } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { dictionary } from '../db';
+import { useWindSocket, getWindDirectionText } from '../wind-context/WindSocketContext';
 
 interface MobileDrawerProps {
     isOpen: boolean;
     onClose: () => void;
     lang: string;
+    categories: any[];
 }
 
-export default function MobileDrawer({ isOpen, onClose, lang }: MobileDrawerProps) {
+export default function MobileDrawer({ isOpen, onClose, lang, categories = [] }: MobileDrawerProps) {
     const [openMenus, setOpenMenus] = useState<string[]>([]);
+    const { windSpeed, windGust, windDirection, status } = useWindSocket();
 
-    // Get translations
+    // Get translations for auxiliary links/buttons
     const t = dictionary[lang as keyof typeof dictionary] || dictionary['es'];
-    const nav = t.nav;
     const md = t.mobileDrawer;
 
-    // Construct localized navigation
-    const navigation = [
-        {
-            name: nav.kitesurf.name,
-            href: `/${lang}/category/kitesurf`,
-            subcategories: [
-                { name: nav.kitesurf.subs.cometas, href: `/${lang}/category/kitesurf/cometas` },
-                { name: nav.kitesurf.subs.tablas, href: `/${lang}/category/kitesurf/tablas` },
-                { name: nav.kitesurf.subs.accesorios, href: `/${lang}/category/kitesurf/accesorios` },
-                { name: nav.kitesurf.subs.outlet, href: `/${lang}/category/kitesurf/outlet` },
-            ]
-        },
-        {
-            name: nav.wingfoil.name,
-            href: `/${lang}/category/wing-foil`,
-            subcategories: [
-                { name: nav.wingfoil.subs.hydrofoil, href: `/${lang}/category/wing-foil/hydrofoil` },
-                { name: nav.wingfoil.subs.alas, href: `/${lang}/category/wing-foil/alas` },
-                { name: nav.wingfoil.subs.tablas, href: `/${lang}/category/wing-foil/tablas` },
-                { name: nav.wingfoil.subs.componentes, href: `/${lang}/category/wing-foil/componentes` },
-            ]
-        },
-        {
-            name: nav.accesorios.name,
-            href: `/${lang}/category/accesorios`,
-            subcategories: [
-                { name: nav.accesorios.subs.todos, href: `/${lang}/category/accesorios` },
-                { name: nav.accesorios.subs.nueva, href: `/${lang}/category/accesorios/nueva-temporada` },
-                { name: nav.accesorios.subs.outlet, href: `/${lang}/category/accesorios/outlet` },
-                { name: nav.accesorios.subs.usado, href: `/${lang}/category/accesorios/usado` },
-            ]
-        },
-        {
-            name: nav.deals,
-            href: `/${lang}/sale`,
-            highlight: true
-        }
-    ];
+    // 1. Identify main categories (those whose parent is named "Shop" or has slug "shop")
+    const shopCat = categories.find(c => c.slug === 'shop' || c.slug === 'tienda');
+    const rootCategories = shopCat
+        ? categories.filter(c => c.parent?.documentId === shopCat?.documentId)
+        : categories.filter(c => !c.parent);
+
+    // 2. Localized navigation from Strapi categories
+    const navigation = rootCategories.map(cat => {
+        const rootPath = cat.slug;
+        return {
+            name: cat.name,
+            href: `/${lang}/${cat.slug}`,
+            subcategories: categories
+                .filter(sub => sub.parent?.documentId === cat.documentId)
+                .map(sub => ({
+                    name: sub.name,
+                    href: `/${lang}/${rootPath}/${sub.slug}`
+                }))
+        };
+    });
 
     // Disable body scroll when menu is open
     useEffect(() => {
@@ -105,8 +89,7 @@ export default function MobileDrawer({ isOpen, onClose, lang }: MobileDrawerProp
                                 <div className="flex items-center justify-between w-full">
                                     <a
                                         href={item.href}
-                                        className={`flex-1 py-4 px-6 font-black text-[13px] tracking-[0.1em] ${item.highlight ? 'text-[var(--color-accent)]' : 'text-[#0051B5]'
-                                            }`}
+                                        className="flex-1 py-4 px-6 font-black text-[13px] tracking-[0.1em] text-[#0051B5]"
                                         onClick={(e) => {
                                             if (item.subcategories) {
                                                 e.preventDefault();
@@ -146,15 +129,32 @@ export default function MobileDrawer({ isOpen, onClose, lang }: MobileDrawerProp
                         ))}
                     </div>
 
-                    {/* Wind Widget in Menu */}
-                    <div className="mt-6 p-6 flex flex-col gap-6 w-full">
-                        <div className="flex items-center gap-3 border-l-4 border-[var(--color-accent)] pl-4 py-3 bg-gray-50 rounded-r-lg">
-                            <Wind size={20} className="text-[var(--color-accent)] shrink-0" />
-                            <div className="flex flex-col">
-                                <span className="text-[8px] text-gray-400 font-bold uppercase tracking-widest leading-none">{t.topBar.wind} {t.topBar.location}</span>
-                                <span className="text-[#0051B5] font-black italic text-base leading-tight uppercase">23 KTS</span>
-                            </div>
-                        </div>
+                     {/* Wind Widget in Menu */}
+                     <div className="mt-6 p-6 flex flex-col gap-6 w-full">
+                         <a 
+                             href="https://canarywindreport.com" 
+                             target="_blank" 
+                             rel="noopener noreferrer"
+                             className="flex items-center gap-3 border-l-4 border-[var(--color-accent)] pl-4 py-3 bg-gray-50 rounded-r-lg hover:bg-gray-100 transition-colors"
+                         >
+                             <Wind size={20} className={`${status === 'connected' ? 'text-green-500' : status === 'polling' ? 'text-yellow-500' : 'text-red-500'} shrink-0`} />
+                             <div className="flex flex-col">
+                                 <span className="text-[8px] text-gray-400 font-bold uppercase tracking-widest leading-none">{t.topBar.wind} {t.topBar.location}</span>
+                                 <span className="text-[var(--color-accent)] font-black italic text-base leading-tight uppercase">
+                                     {windSpeed !== null ? `${windSpeed} kts` : '-- kts'}
+                                     {windGust !== null && windSpeed !== null && windGust > windSpeed && (
+                                         <span className="text-[var(--color-accent)]">
+                                             / {windGust}kts
+                                         </span>
+                                     )}
+                                     {windDirection !== null && (
+                                         <span className="text-[var(--color-accent)] ml-1">
+                                             {getWindDirectionText(windDirection)} {windDirection}º
+                                         </span>
+                                     )}
+                                 </span>
+                             </div>
+                         </a>
 
                         <div className="flex flex-col gap-3 mt-2">
                             <a href={`/${lang}/blog`} className="text-gray-400 font-bold tracking-widest text-[10px] uppercase hover:text-[#0051B5]" onClick={onClose}>{md.blog}</a>
