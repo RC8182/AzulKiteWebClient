@@ -1,4 +1,4 @@
-import { fetchData } from "@/lib/strapi";
+import { fetchData } from "@/lib/strapi-replacement";
 import BlockRenderer from "@/components/blocks/BlockRenderer";
 
 async function getPageData(slug: string, locale: string) {

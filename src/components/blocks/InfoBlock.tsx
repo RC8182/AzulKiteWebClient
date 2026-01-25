@@ -1,5 +1,5 @@
 import NextImage from 'next/image';
-import { getStrapiMedia } from '@/lib/strapi';
+import { getStrapiMedia } from '@/lib/media-utils';
 
 interface InfoBlockProps {
     title: string;
@@ -39,3 +39,4 @@ export default function InfoBlock({ title, description, image, imagePosition = '
         </section>
     );
 }
+

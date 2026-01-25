@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { getStrapiMedia } from '@/lib/strapi';
+import { getStrapiMedia } from '@/lib/media-utils';
 import Link from 'next/link';
 import NextImage from 'next/image';
 
@@ -70,3 +70,4 @@ export default function HeroSection({
         </section>
     );
 }
+

@@ -12,12 +12,12 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-import { fetchData } from "@/lib/strapi";
+import { fetchData } from "@/lib/strapi-replacement";
 
 export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
   const { lang } = await params;
   try {
-    const globalData = await fetchData("global", { populate: "*", locale: lang });
+    const globalData = await fetchData("global", { locale: lang });
     const siteName = globalData?.data?.siteName || "Azul Kiteboarding";
 
     return {

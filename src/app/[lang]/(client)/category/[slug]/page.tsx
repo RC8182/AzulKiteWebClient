@@ -1,8 +1,8 @@
-import { getCategoryBySlug } from '@/actions/category-actions';
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
-import { fetchData } from '@/lib/strapi';
+import { fetchData } from '@/lib/strapi-replacement';
 import BlockRenderer from '@/components/blocks/BlockRenderer';
+import { prisma } from '@/lib/prisma';
 
 interface CategoryPageProps {
     params: Promise<{
@@ -38,21 +38,25 @@ async function getCategoryPageData(locale: string) {
 export default async function CategoryPage({ params }: CategoryPageProps) {
     const { lang, slug } = await params;
 
-    // 1. Fetch category metadata from Strapi (Source of truth)
-    const category = await getCategoryBySlug(slug, lang);
-    const categoryName = category?.name || slug.charAt(0).toUpperCase() + slug.slice(1);
+    // 1. Fetch category metadata from Prisma
+    const category = await prisma.category.findFirst({
+      where: { slug },
+      include: {
+        translations: {
+          where: { locale: lang },
+          select: { name: true, description: true }
+        }
+      }
+    });
+    const categoryName = category?.translations[0]?.name || slug.charAt(0).toUpperCase() + slug.slice(1);
 
     // Fetch optional page blocks from Strapi
     const pageData = await getCategoryPageData(lang);
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
-            {/* Render Category specific blocks if they exist, otherwise fallback to generic category page blocks */}
-            {(category?.blocks && category.blocks.length > 0) ? (
-                <BlockRenderer blocks={category.blocks} />
-            ) : (
-                pageData?.blocks && <BlockRenderer blocks={pageData.blocks} />
-            )}
+            {/* Render generic category page blocks */}
+            {pageData?.blocks && <BlockRenderer blocks={pageData.blocks} />}
 
             {/* Breadcrumbs Header */}
             <div className="bg-white border-b border-gray-100">

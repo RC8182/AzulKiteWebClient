@@ -1,7 +1,7 @@
 import { use } from 'react';
 import Link from 'next/link';
 import { getDictionary } from '@/components/dashboard/db';
-import { getProducts } from '@/actions/product-actions';
+import { getProducts } from '@/actions/product-actions-prisma';
 import ProductTable from '@/components/dashboard/ProductTable';
 import { Plus } from 'lucide-react';
 

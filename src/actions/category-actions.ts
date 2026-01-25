@@ -1,78 +1,43 @@
 'use server';
 
-import qs from 'qs';
+import * as actions from './category-actions-prisma';
 
-const STRAPI_URL = process.env.NEXT_PUBLIC_STRAPI_URL || 'http://localhost:1337';
-
-/**
- * Fetch hierarchical categories
- */
-export async function getCategories(locale: string = 'es') {
-    try {
-        const query = qs.stringify({
-            populate: ['parent', 'children', 'image'],
-            locale,
-            sort: ['name:asc'],
-        }, { encodeValuesOnly: true });
-
-        const response = await fetch(`${STRAPI_URL}/api/categories?${query}`, {
-            cache: 'no-store',
-        });
-
-        if (!response.ok) {
-            throw new Error('Failed to fetch categories');
-        }
-
-        const data = await response.json();
-        return data.data;
-    } catch (error) {
-        console.error('Error fetching categories:', error);
-        return [];
-    }
+export async function getCategories(locale?: string) {
+    return actions.getCategories(locale);
 }
 
-/**
- * Fetch a single category by slug with its children
- */
-export async function getCategoryBySlug(slug: string, locale: string = 'es') {
-    try {
-        const query = qs.stringify({
-            filters: { slug: { $eq: slug } },
-            populate: {
-                children: {
-                    populate: {
-                        children: {
-                            populate: ['children']
-                        }
-                    }
-                },
-                parent: true,
-                image: true,
-                blocks: {
-                    on: {
-                        'blocks.hero-slider': { populate: { slides: { populate: ['backgroundImage', 'buttons'] } } },
-                        'blocks.banner-grid': { populate: { banners: { populate: ['image', 'links'] } } },
-                        'blocks.hero-section': { populate: ['backgroundImage', 'cta'] },
-                        'blocks.info-block': { populate: '*' },
-                        'blocks.product-grid': { populate: { manualProducts: { populate: ['images'] }, selectedCategory: true } }
-                    }
-                }
-            },
-            locale,
-        }, { encodeValuesOnly: true });
+export async function getCategoryTree(locale?: string) {
+    return actions.getCategoryTree(locale);
+}
 
-        const response = await fetch(`${STRAPI_URL}/api/categories?${query}`, {
-            cache: 'no-store',
-        });
+export async function getCategory(id: string, locale?: string) {
+    return actions.getCategory(id, locale);
+}
 
-        if (!response.ok) {
-            throw new Error('Failed to fetch category by slug');
-        }
+export async function getCategoryBySlug(slug: string, locale?: string) {
+    return actions.getCategoryBySlug(slug, locale);
+}
 
-        const data = await response.json();
-        return data.data?.[0] || null;
-    } catch (error) {
-        console.error('Error fetching category by slug:', error);
-        return null;
-    }
+export async function createCategory(data: any) {
+    return actions.createCategory(data);
+}
+
+export async function updateCategory(id: string, data: any) {
+    return actions.updateCategory(id, data);
+}
+
+export async function deleteCategory(id: string) {
+    return actions.deleteCategory(id);
+}
+
+export async function getProductsByCategory(categorySlug: string, page?: number, pageSize?: number, locale?: string) {
+    return actions.getProductsByCategory(categorySlug, page, pageSize, locale);
+}
+
+export async function migrateCategoryFromStrapi(strapiData: any) {
+    return actions.migrateCategoryFromStrapi(strapiData);
+}
+
+export async function getCategoryStats(locale?: string) {
+    return actions.getCategoryStats(locale);
 }

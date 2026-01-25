@@ -3,7 +3,11 @@ export const dictionary = {
         // Navigation
         dashboard: 'Dashboard',
         products: 'Productos',
+        categories: 'Categorías',
+        pages: 'Páginas',
+        media: 'Multimedia',
         settings: 'Configuración',
+        navStock: 'Stock',
 
         // Product List
         productList: 'Lista de Productos',
@@ -23,6 +27,8 @@ export const dictionary = {
         edit: 'Editar',
         delete: 'Eliminar',
         view: 'Ver',
+        editPage: 'Editar Página',
+        newPage: 'Nueva Página',
 
         // Product Form
         productDetails: 'Detalles del Producto',
@@ -75,7 +81,11 @@ export const dictionary = {
         // Navigation
         dashboard: 'Dashboard',
         products: 'Products',
+        categories: 'Categories',
+        pages: 'Pages',
+        media: 'Media',
         settings: 'Settings',
+        navStock: 'Stock',
 
         // Product List
         productList: 'Product List',
@@ -95,6 +105,8 @@ export const dictionary = {
         edit: 'Edit',
         delete: 'Delete',
         view: 'View',
+        editPage: 'Edit Page',
+        newPage: 'New Page',
 
         // Product Form
         productDetails: 'Product Details',
@@ -147,7 +159,11 @@ export const dictionary = {
         // Navigation
         dashboard: 'Dashboard',
         products: 'Prodotti',
+        categories: 'Categorie',
+        pages: 'Pagine',
+        media: 'Media',
         settings: 'Impostazioni',
+        navStock: 'Scorta',
 
         // Product List
         productList: 'Elenco Prodotti',
@@ -167,6 +183,8 @@ export const dictionary = {
         edit: 'Modifica',
         delete: 'Elimina',
         view: 'Visualizza',
+        editPage: 'Modifica Pagina',
+        newPage: 'Nuova Pagina',
 
         // Product Form
         productDetails: 'Dettagli Prodotto',

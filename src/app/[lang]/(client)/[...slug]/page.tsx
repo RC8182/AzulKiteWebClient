@@ -1,9 +1,9 @@
-import { getCategoryBySlug } from '@/actions/category-actions';
-import { fetchData } from '@/lib/strapi';
+import { fetchData } from '@/lib/strapi-replacement';
 import BlockRenderer from '@/components/blocks/BlockRenderer';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
+import { prisma } from '@/lib/prisma';
 
 interface SmartPageProps {
     params: Promise<{
@@ -69,12 +69,12 @@ export default async function SmartPage({ params }: SmartPageProps) {
     // 1. Try to find a CATEGORY
     // Try different slug combinations for hierarchical categories
     let category = null;
-    
+
     // First try: Full path (e.g., "kitesurf/boards" -> "boards-kite")
     if (slug.length >= 2) {
         const parentSlug = slug[slug.length - 2];
         const childSlug = slug[slug.length - 1];
-        
+
         // Map common hierarchical paths to actual category slugs
         const hierarchicalMapping: Record<string, Record<string, string>> = {
             'kitesurf': {
@@ -101,30 +101,42 @@ export default async function SmartPage({ params }: SmartPageProps) {
                 'used-test': 'used-test'
             }
         };
-        
+
         if (hierarchicalMapping[parentSlug] && hierarchicalMapping[parentSlug][childSlug]) {
             const actualSlug = hierarchicalMapping[parentSlug][childSlug];
-            category = await getCategoryBySlug(actualSlug, lang);
+            category = await prisma.category.findFirst({
+                where: { slug: actualSlug },
+                include: {
+                    translations: {
+                        where: { locale: lang },
+                        select: { name: true, description: true }
+                    }
+                }
+            });
         }
     }
-    
+
     // Second try: Leaf slug (last item)
     if (!category) {
         const leafSlug = slug[slug.length - 1];
-        category = await getCategoryBySlug(leafSlug, lang);
+        category = await prisma.category.findFirst({
+            where: { slug: leafSlug },
+            include: {
+                translations: {
+                    where: { locale: lang },
+                    select: { name: true, description: true }
+                }
+            }
+        });
     }
 
     if (category) {
         const pageData = await getCategoryBasePageData(lang);
-        const categoryName = category.name;
+        const categoryName = category.translations[0]?.name || slug[slug.length - 1];
 
         return (
             <div className="min-h-screen bg-gray-50 flex flex-col">
-                {(category?.blocks && category.blocks.length > 0) ? (
-                    <BlockRenderer blocks={category.blocks} category={category} />
-                ) : (
-                    pageData?.blocks && <BlockRenderer blocks={pageData.blocks} category={category} />
-                )}
+                {pageData?.blocks && <BlockRenderer blocks={pageData.blocks} category={category} />}
 
                 <div className="bg-white border-b border-gray-100">
                     <div className="container mx-auto px-4 py-6">

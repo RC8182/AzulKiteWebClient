@@ -19,8 +19,12 @@ export default function ProductCard({ product, lang }: ProductCardProps) {
     const imageUrl = mainImage?.url || mainImage?.attributes?.url || '/placeholder-product.jpg';
     const imageAlt = mainImage?.alternativeText || mainImage?.attributes?.alternativeText || product.name;
     
-    const price = product.price || product.attributes?.price || 0;
-    const discountPrice = product.discountPrice || product.attributes?.discountPrice;
+    // Obtener precio de la primera variant
+    const firstVariant = product.variants?.[0];
+    const price = firstVariant?.price || product.price || product.attributes?.price || 0;
+    const discountPrice = firstVariant?.saleInfo?.discountPercent ? 
+        price * (1 - (firstVariant.saleInfo.discountPercent / 100)) : 
+        product.discountPrice || product.attributes?.discountPrice;
     const hasDiscount = discountPrice && discountPrice < price;
     
     const category = product.category || product.attributes?.category?.data?.attributes;

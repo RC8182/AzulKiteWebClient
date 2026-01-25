@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { getStrapiMedia } from '@/lib/strapi';
+import { getStrapiMedia } from '@/lib/media-utils';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -115,3 +115,4 @@ export default function ScrollingBanner({
         </section>
     );
 }
+

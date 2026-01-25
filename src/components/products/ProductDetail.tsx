@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { ShoppingCart, Heart, Share2, Truck, Undo2, Check } from 'lucide-react';
-import { getStrapiMedia } from '@/lib/strapi';
+import { getStrapiMedia } from '@/lib/media-utils';
 import { useCart } from '@/store/useCart';
 import { getDictionary, type Language } from './db';
 
@@ -15,10 +15,30 @@ interface ProductDetailProps {
 export default function ProductDetail({ product, lang }: ProductDetailProps) {
     const { addItem } = useCart();
     const dict = getDictionary(lang as Language);
-    const { name, price: fallbackProductPrice, description_es, description_en, description_it, category: productCategory, images, brand, productNumber, variants = [], accessories = [], saleInfo: productSaleInfo = { type: 'None', discountPercent: 0 }, stock: productStock } = product;
+    const {
+        name,
+        price: fallbackProductPrice,
+        description: topDescription,
+        description_es,
+        description_en,
+        description_it,
+        category: productCategory,
+        images,
+        brand: topBrand,
+        technicalDetails,
+        productNumber,
+        variants = [],
+        accessories = [],
+        saleInfo: productSaleInfo = { type: 'None', discountPercent: 0 },
+        stock: productStock
+    } = product;
+
+    // Brand logic: check top level then technicalDetails
+    const brand = topBrand || technicalDetails?.brand;
 
     // Choose description based on language
-    const description = lang === 'en' ? description_en : lang === 'it' ? description_it : description_es;
+    // In Strapi 5 localized fetch, 'description' usually contains the translation for the requested locale
+    const description = topDescription || (lang === 'en' ? description_en : lang === 'it' ? description_it : description_es);
 
     const productImages = images?.data || images || [];
     const productPrice = fallbackProductPrice || 0;
@@ -294,3 +314,4 @@ export default function ProductDetail({ product, lang }: ProductDetailProps) {
         </div>
     );
 }
+

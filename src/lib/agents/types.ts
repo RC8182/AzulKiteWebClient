@@ -19,7 +19,11 @@ export interface AgentContext {
         uncategorized: number;
         criticalStock: number;
         missingDescriptions: number;
+        structureIssues: number;
+        missingTechnicalSpecs: number;
+        variantsWithoutSku: number;
     };
+    uploadedImageIds?: number[];
 }
 
 export interface ToolDefinition {
@@ -34,7 +38,7 @@ export interface ToolDefinition {
 
 export interface AgentTool {
     definition: ToolDefinition;
-    execute: (args: any) => Promise<any>;
+    execute: (args: any, context?: any) => Promise<any>;
 }
 
 export interface AgentResponse {

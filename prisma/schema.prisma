@@ -1,0 +1,295 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ========== MODELS PRINCIPALES ==========
+
+model Product {
+  id              String        @id @default(cuid())
+  slug            String        @unique
+  productNumber   String?
+  brand           String?
+  year            Int?
+  condition       String        @default("new")
+  size            String?
+  material        String?
+  
+  // Metadata
+  aiGenerated     Boolean       @default(false)
+  lastAiUpdate    DateTime?
+  manualsIndexed  Boolean       @default(false)
+  
+  // JSON fields
+  accessories     Json?
+  technicalDetails Json?
+  
+  // Relaciones
+  translations    ProductTranslation[]
+  categories      Category[]    @relation("ProductCategories")
+  images          Media[]
+  variants        Variant[]
+  saleInfo        SaleInfo?
+  
+  // Timestamps
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  // Índices
+  @@index([slug])
+  @@index([productNumber])
+  @@index([brand])
+  @@index([year])
+  @@index([condition])
+  
+  @@map("products")
+}
+
+model Category {
+  id              String        @id @default(cuid())
+  slug            String        @unique
+  parentId        String?
+  
+  // Relaciones
+  translations    CategoryTranslation[]
+  parent          Category?     @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children        Category[]    @relation("CategoryHierarchy")
+  products        Product[]     @relation("ProductCategories")
+  images          Media[]       @relation("CategoryImages")
+  
+  // Timestamps
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  // Índices
+  @@index([slug])
+  @@index([parentId])
+  
+  @@map("categories")
+}
+
+// ========== SISTEMA DE i18n ==========
+
+model ProductTranslation {
+  id                String    @id @default(cuid())
+  productId         String
+  locale            String    // 'es', 'en', 'it'
+  name              String?
+  description       String?
+  shortDescription  String?   @db.VarChar(200)
+  
+  product           Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  // Índices
+  @@index([locale])
+  
+  @@unique([productId, locale])
+  @@map("product_translations")
+}
+
+model CategoryTranslation {
+  id                String    @id @default(cuid())
+  categoryId        String
+  locale            String    // 'es', 'en', 'it'
+  name              String
+  description       String?
+  
+  category          Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  
+  // Índices
+  @@index([locale])
+  
+  @@unique([categoryId, locale])
+  @@map("category_translations")
+}
+
+// ========== MEDIA ==========
+
+model Media {
+  id              String        @id @default(cuid())
+  name            String
+  url             String
+  mimeType        String
+  size            Int?
+  width           Int?
+  height          Int?
+  altText         String?
+  
+  // Relaciones
+  productId       String?
+  product         Product?      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  categoryId      String?
+  category        Category?     @relation("CategoryImages", fields: [categoryId], references: [id], onDelete: Cascade)
+  
+  // Timestamps
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  // Índices
+  @@index([productId])
+  @@index([categoryId])
+  
+  @@map("media")
+}
+
+// ========== COMPONENTES ==========
+
+model Variant {
+  id              String        @id @default(cuid())
+  name            String
+  sku             String?
+  price           Float
+  stock           Int           @default(0)
+  attributes      Json?         // { color: "red", size: "M" }
+  
+  productId       String
+  product         Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  // Timestamps
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  @@map("variants")
+}
+
+model SaleInfo {
+  id              String        @id @default(cuid())
+  onSale          Boolean       @default(false)
+  salePrice       Float?
+  saleStart       DateTime?
+  saleEnd         DateTime?
+  
+  productId       String        @unique
+  product         Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  // Timestamps
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  @@map("sale_info")
+}
+
+// ========== PÁGINAS Y CONTENIDO ==========
+
+model Page {
+  id              String        @id @default(cuid())
+  slug            String        @unique
+  title           String
+  content         String?
+  published       Boolean       @default(true)
+  
+  // i18n
+  translations    PageTranslation[]
+  blocks          PageBlock[]
+  
+  // Timestamps
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  @@map("pages")
+}
+
+model PageTranslation {
+  id                String    @id @default(cuid())
+  pageId            String
+  locale            String    // 'es', 'en', 'it'
+  title             String
+  content           String?
+  
+  page              Page      @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  
+  // Índices
+  @@index([locale])
+  
+  @@unique([pageId, locale])
+  @@map("page_translations")
+}
+
+model PageBlock {
+  id              String        @id @default(cuid())
+  pageId          String
+  type            String        // 'hero', 'rich-text', 'features', etc.
+  order           Int           @default(0)
+  config          Json?         // Technical config: { imageAlignment: 'left', excludeMobile: true, images: [] }
+  
+  page            Page          @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  translations    PageBlockTranslation[]
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  @@index([pageId])
+  @@map("page_blocks")
+}
+
+model PageBlockTranslation {
+  id              String        @id @default(cuid())
+  blockId         String
+  locale          String        // 'es', 'en', 'it'
+  content         Json?         // Flexible content: { title: "...", subtitle: "...", buttonText: "..." }
+  
+  block           PageBlock     @relation(fields: [blockId], references: [id], onDelete: Cascade)
+  
+  @@unique([blockId, locale])
+  @@map("page_block_translations")
+}
+
+// ========== CONFIGURACIÓN GLOBAL ==========
+
+model GlobalConfig {
+  id              String        @id @default(cuid())
+  key             String        @unique
+  value           Json?         // Para configuraciones técnicas que no se traducen
+  description     String?
+  
+  // Trduciones
+  translations    GlobalTranslation[]
+  
+  // Timestamps
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  @@map("global_config")
+}
+
+model GlobalTranslation {
+  id                String    @id @default(cuid())
+  globalConfigId    String
+  locale            String    // 'es', 'en', 'it'
+  siteName          String
+  footerText        String?
+  metaTitle         String?
+  metaDescription   String?
+  
+  globalConfig      GlobalConfig @relation(fields: [globalConfigId], references: [id], onDelete: Cascade)
+  
+  // Índices
+  @@index([locale])
+  
+  @@unique([globalConfigId, locale])
+  @@map("global_translations")
+}
+
+// ========== AGENTES IA ==========
+
+model AgentSession {
+  id              String        @id @default(cuid())
+  sessionId       String        @unique
+  userId          String?
+  metadata        Json?
+  
+  // Timestamps
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  @@map("agent_sessions")
+}
+
+

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo, useRef, useCallback, useState, useEffect } from 'react';
-import { getStrapiMedia } from '@/lib/strapi';
+import { getStrapiMedia } from '@/lib/media-utils';
 import { useCart } from '@/store/useCart';
 import { useProductFilters } from '@/hooks/useProductFilters';
 import { ShoppingCart, Filter, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -560,3 +560,4 @@ function ProductCard({ product, addItem }: { product: any, addItem: any }) {
         </div>
     );
 }
+

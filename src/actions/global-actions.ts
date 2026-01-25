@@ -1,29 +1,41 @@
 'use server';
 
-import qs from 'qs';
-
-const STRAPI_URL = process.env.NEXT_PUBLIC_STRAPI_URL || 'http://localhost:1337';
+import { prisma } from '@/lib/prisma';
 
 export async function getGlobalData(locale: string = 'es') {
     try {
-        const query = qs.stringify({
-            populate: ['favicon', 'navigation'],
-            locale,
+        const globalConfig = await prisma.globalConfig.findFirst({
+            include: {
+                translations: {
+                    where: { locale },
+                    select: {
+                        siteName: true,
+                        footerText: true,
+                        metaTitle: true,
+                        metaDescription: true,
+                    }
+                }
+            }
         });
 
-        const response = await fetch(`${STRAPI_URL}/api/global?${query}`, {
-            cache: 'no-store',
-        });
+        if (!globalConfig) return null;
 
-        if (!response.ok) {
-            if (response.status === 404) return null;
-            throw new Error(`Failed to fetch global data: ${response.statusText}`);
-        }
+        const translation = globalConfig.translations[0];
 
-        const data = await response.json();
-        return data.data;
+        // Normalizamos los datos para que el frontend reciba lo que espera
+        return {
+            siteName: translation?.siteName || 'Azul Kiteboarding',
+            footerText: translation?.footerText || 'La mejor tienda y escuela de kitesurf.',
+            ...translation,
+            // Soporte para campos de Strapi si se requieren
+            attributes: {
+                siteName: translation?.siteName,
+                footerText: translation?.footerText,
+                ...translation
+            }
+        };
     } catch (error) {
-        console.error('Error fetching global data:', error);
+        console.error('Error fetching global data from Prisma:', error);
         return null;
     }
 }

@@ -5,6 +5,8 @@ export abstract class BaseAgent {
     protected history: AgentMessage[] = [];
     protected systemPrompt: string = '';
     protected tools: Record<string, AgentTool> = {};
+    protected activeContext?: AgentContext;
+
 
     constructor(systemPrompt?: string) {
         if (systemPrompt) {
@@ -36,7 +38,7 @@ export abstract class BaseAgent {
 
     // Keep only the most recent conversation turns to prevent overflow
     private pruneHistory(messages: AgentMessage[]): AgentMessage[] {
-        const MAX_HISTORY_MESSAGES = 10; // Keep last 10 turns
+        const MAX_HISTORY_MESSAGES = 50; // Increased to 50 to prevent context loss during complex tool chains
         const systemMessages = messages.filter(m => m.role === 'system');
         const nonSystemMessages = messages.filter(m => m.role !== 'system');
 
@@ -78,6 +80,9 @@ export abstract class BaseAgent {
     protected async callLLM(messages: AgentMessage[], temperature: number = 0.7, useTools: boolean = true): Promise<string> {
         const apiKey = process.env.DEEPSEEK_API_KEY;
         const apiUrl = 'https://api.deepseek.com/v1/chat/completions';
+        const MAX_ITERATIONS = 15;
+        let iteration = 0;
+        let currentMessages = [...messages];
 
         if (!apiKey) {
             throw new Error('DEEPSEEK_API_KEY is not configured');
@@ -103,99 +108,109 @@ export abstract class BaseAgent {
             });
         };
 
-        // Prune history before formatting to prevent overflow
-        const prunedMessages = this.pruneHistory(messages);
-        const formattedMessages = formatMessages(prunedMessages);
+        while (iteration < MAX_ITERATIONS) {
+            iteration++;
 
-        const body: any = {
-            model: 'deepseek-chat',
-            messages: formattedMessages,
-            temperature,
-        };
+            // Prune history before formatting to prevent overflow
+            const prunedMessages = this.pruneHistory(currentMessages);
+            const formattedMessages = formatMessages(prunedMessages);
 
-        if (useTools && Object.keys(this.tools).length > 0) {
-            body.tools = Object.values(this.tools).map(t => ({
-                type: 'function',
-                function: t.definition
-            }));
-        }
+            const body: any = {
+                model: 'deepseek-chat',
+                messages: formattedMessages,
+                temperature,
+            };
 
-        const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`,
-            },
-            body: JSON.stringify(body),
-        });
+            if (useTools && Object.keys(this.tools).length > 0) {
+                body.tools = Object.values(this.tools).map(t => ({
+                    type: 'function',
+                    function: t.definition
+                }));
+            }
 
-        if (!response.ok) {
-            const error = await response.json().catch(() => ({}));
-            throw new Error(`LLM API error: ${error.error?.message || error.message || response.statusText}`);
-        }
-
-        const data = await response.json();
-        const assistantMessage = data.choices[0]?.message;
-
-        if (assistantMessage.tool_calls && useTools) {
-            // Add the assistant's tool call to history
-            this.history.push({
-                role: 'assistant',
-                content: assistantMessage.content || '',
-                timestamp: Date.now(),
-                metadata: { tool_calls: assistantMessage.tool_calls }
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`,
+                },
+                body: JSON.stringify(body),
             });
 
-            // Prepare tool results for the second call
-            const toolResults: AgentMessage[] = [];
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({}));
+                throw new Error(`LLM API error: ${error.error?.message || error.message || response.statusText}`);
+            }
 
-            for (const toolCall of assistantMessage.tool_calls) {
-                const tool = this.tools[toolCall.function.name];
-                if (tool) {
-                    try {
-                        const args = JSON.parse(toolCall.function.arguments);
-                        const result = await tool.execute(args);
+            const data = await response.json();
+            const assistantMessage = data.choices[0]?.message;
 
-                        // Truncate large results to prevent context overflow
-                        const truncatedResult = this.truncateToolResult(result);
+            if (assistantMessage.tool_calls && useTools) {
+                // Add the assistant's tool call to history
+                const assistantMsgObj: AgentMessage = {
+                    role: 'assistant',
+                    content: assistantMessage.content || '',
+                    timestamp: Date.now(),
+                    metadata: { tool_calls: assistantMessage.tool_calls }
+                };
 
-                        const toolMsg: AgentMessage = {
-                            role: 'tool',
-                            tool_call_id: toolCall.id,
-                            name: toolCall.function.name,
-                            content: truncatedResult,
-                            timestamp: Date.now()
-                        };
+                this.history.push(assistantMsgObj);
+                currentMessages.push(assistantMsgObj);
 
-                        toolResults.push(toolMsg);
-                        this.history.push(toolMsg);
-                    } catch (e) {
+                // Execute tools
+                for (const toolCall of assistantMessage.tool_calls) {
+                    const tool = this.tools[toolCall.function.name];
+                    if (tool) {
+                        try {
+                            const args = JSON.parse(toolCall.function.arguments);
+                            const result = await tool.execute(args, this.activeContext);
+                            const truncatedResult = this.truncateToolResult(result);
+
+                            const toolMsg: AgentMessage = {
+                                role: 'tool',
+                                tool_call_id: toolCall.id,
+                                name: toolCall.function.name,
+                                content: truncatedResult,
+                                timestamp: Date.now()
+                            };
+
+                            this.history.push(toolMsg);
+                            currentMessages.push(toolMsg);
+                        } catch (e) {
+                            const errorMsg: AgentMessage = {
+                                role: 'tool',
+                                tool_call_id: toolCall.id,
+                                name: toolCall.function.name,
+                                content: JSON.stringify({ error: `Tool execution failed: ${e}` }),
+                                timestamp: Date.now()
+                            };
+                            this.history.push(errorMsg);
+                            currentMessages.push(errorMsg);
+                        }
+                    } else {
                         const errorMsg: AgentMessage = {
                             role: 'tool',
                             tool_call_id: toolCall.id,
                             name: toolCall.function.name,
-                            content: JSON.stringify({ error: `Tool execution failed: ${e}` }),
+                            content: JSON.stringify({ error: `Tool not found: ${toolCall.function.name}` }),
                             timestamp: Date.now()
                         };
-                        toolResults.push(errorMsg);
                         this.history.push(errorMsg);
+                        currentMessages.push(errorMsg);
                     }
                 }
+
+                // Continue to next iteration to give the model the tool results
+                continue;
             }
 
-            // Call LLM again with tool results
-            // We use the same message history but including the new tool results
-            return this.callLLM([...prunedMessages, {
-                role: 'assistant',
-                content: assistantMessage.content || '',
-                timestamp: Date.now(),
-                metadata: { tool_calls: assistantMessage.tool_calls }
-            }, ...toolResults], temperature, false);
+            // No tool calls (or tools disabled), return final content
+            const content = assistantMessage?.content || '';
+            this.history.push({ role: 'assistant', content, timestamp: Date.now() });
+            return content;
         }
 
-        const content = assistantMessage?.content || '';
-        this.history.push({ role: 'assistant', content, timestamp: Date.now() });
-        return content;
+        return "He realizado el máximo número de pasos automáticos permitidos. Por favor, revisa el progreso o dime cómo continuar.";
     }
 
     public abstract processMessage(message: string, context: AgentContext): Promise<AgentResponse>;

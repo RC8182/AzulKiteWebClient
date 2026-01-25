@@ -1,66 +1,6 @@
-import { fetchData } from "@/lib/strapi";
-import BlockRenderer from "@/components/blocks/BlockRenderer";
+import { getPageBySlug } from "@/actions/page-actions-prisma";
+import BlockRenderer from "@/components/BlockRenderer";
 import { notFound } from "next/navigation";
-
-async function getPageData(slug: string, locale: string) {
-    try {
-        // Skip common file-like extensions that might hit this route
-        if (slug.includes('.')) return null;
-
-        const data = await fetchData("pages", {
-            filters: { slug: { $eq: slug } },
-            locale,
-            populate: {
-                blocks: {
-                    on: {
-                        'blocks.hero-slider': {
-                            populate: {
-                                slides: {
-                                    populate: ['backgroundImage', 'buttons']
-                                }
-                            }
-                        },
-                        'blocks.banner-grid': {
-                            populate: {
-                                banners: {
-                                    populate: ['image', 'links']
-                                }
-                            }
-                        },
-                        'blocks.product-grid': {
-                            populate: {
-                                manualProducts: {
-                                    populate: '*'
-                                },
-                                selectedCategory: {
-                                    populate: '*'
-                                }
-                            }
-                        },
-                        'blocks.hero-section': {
-                            populate: ['backgroundImage', 'cta']
-                        },
-                        'blocks.info-block': {
-                            populate: '*'
-                        },
-                        'blocks.scrolling-banner': {
-                            populate: {
-                                items: {
-                                    populate: ['image']
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        });
-
-        return data?.data?.[0];
-    } catch (error) {
-        console.error("Error fetching page data:", error);
-        return null;
-    }
-}
 
 interface GenericPageProps {
     params: Promise<{ lang: string; slug: string }>;
@@ -69,16 +9,22 @@ interface GenericPageProps {
 export default async function GenericPage({ params }: GenericPageProps) {
     const { lang, slug } = await params;
 
+    // Skip checkout route
     if (slug === 'checkout') return null;
 
-    const page = await getPageData(slug, lang);
+    // Skip file-like extensions
+    if (slug.includes('.')) {
+        notFound();
+    }
+
+    const page = await getPageBySlug(slug, lang);
 
     if (!page) {
         notFound();
     }
 
     const hasHero = page.blocks?.some((b: any) =>
-        b.__component === 'blocks.hero-section' || b.__component === 'blocks.hero-slider'
+        b.type === 'hero' || b.type === 'hero-slider'
     );
 
     return (
@@ -92,7 +38,9 @@ export default async function GenericPage({ params }: GenericPageProps) {
                     </div>
                 </div>
             )}
-            <BlockRenderer blocks={page.blocks} />
+            {page.blocks?.map((block: any, index: number) => (
+                <BlockRenderer key={block.id || index} block={block} locale={lang} />
+            ))}
         </main>
     );
 }

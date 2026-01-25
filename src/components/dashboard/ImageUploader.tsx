@@ -52,10 +52,14 @@ export default function ImageUploader({
                     const attrs = img.attributes || img;
                     const thumbnailUrl = attrs.formats?.thumbnail?.url || attrs.url;
 
+                    const src = thumbnailUrl?.startsWith('/uploads/') || thumbnailUrl?.startsWith('http')
+                        ? thumbnailUrl
+                        : `${process.env.NEXT_PUBLIC_STRAPI_URL}${thumbnailUrl}`;
+
                     return (
                         <div key={img.id} className="relative group aspect-square bg-gray-100 rounded-lg overflow-hidden">
                             <img
-                                src={`${process.env.NEXT_PUBLIC_STRAPI_URL}${thumbnailUrl}`}
+                                src={src}
                                 alt="Product"
                                 className="w-full h-full object-cover"
                             />

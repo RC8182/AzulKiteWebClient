@@ -2,22 +2,30 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { getDictionary, type Language } from './db';
-import { deleteProduct } from '@/actions/product-actions';
+import { useDashboard } from '@/context/DashboardContext';
+import { deleteProduct, updateProductStock } from '@/actions/product-actions';
 import { getCategories } from '@/actions/category-actions';
-import { Edit, Trash2, Sparkles } from 'lucide-react';
+import { Edit, Trash2, Search, Filter, Package, Layers, Plus, Minus, Loader2 } from 'lucide-react';
+import ProductCard from './ProductCard';
 
 interface Product {
-    id: number;
-    documentId: string;
+    id: string;
+    documentId?: string;
     name: string;
-    category: string;
-    price: number;
-    stock: number;
-    aiGenerated: boolean;
-    manualsIndexed: boolean;
-    images?: any;
-    attributes?: any; // For backward compatibility
+    category?: string;
+    categories?: any[];
+    price?: number;
+    stock?: number;
+    productNumber?: string;
+    aiGenerated?: boolean;
+    manualsIndexed?: boolean;
+    images?: any[];
+    saleInfo?: {
+        onSale?: boolean;
+        salePrice?: number;
+        discountPercent?: number;
+    };
+    variants?: any[];
 }
 
 interface ProductTableProps {
@@ -26,35 +34,35 @@ interface ProductTableProps {
 }
 
 export default function ProductTable({ products, lang }: ProductTableProps) {
-    const dict = getDictionary(lang as Language);
+    const { dict } = useDashboard();
     const [searchTerm, setSearchTerm] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('');
     const [categories, setCategories] = useState<any[]>([]);
+    const [updatingStock, setUpdatingStock] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchCategories = async () => {
-            const cats = await getCategories();
+            const cats = await getCategories(lang);
             setCategories(cats);
         };
         fetchCategories();
-    }, []);
+    }, [lang]);
 
     const filteredProducts = products.filter((product) => {
-        const attributes = product.attributes || (product as any);
-        const name = attributes.name || '';
-        const category = attributes.category || '';
+        const name = product.name || '';
+        const hasCategory = !categoryFilter || product.categories?.some(c => c.id === categoryFilter);
 
         const matchesSearch = name
             .toLowerCase()
             .includes(searchTerm.toLowerCase());
-        const matchesCategory = !categoryFilter || category === categoryFilter;
-        return matchesSearch && matchesCategory;
+
+        return matchesSearch && hasCategory;
     });
 
 
-    const handleDelete = async (documentId: string) => {
+    const handleDelete = async (id: string) => {
         if (confirm(dict.confirmDelete)) {
-            const result = await deleteProduct(documentId);
+            const result = await deleteProduct(id);
             if (result.success) {
                 window.location.reload();
             } else {
@@ -63,165 +71,235 @@ export default function ProductTable({ products, lang }: ProductTableProps) {
         }
     };
 
+    const handleQuickStock = async (product: any, delta: number) => {
+        const id = product.id;
+        const variants = product.variants || [];
+        const isVariable = variants.length > 0;
+
+        let currentStock = 0;
+        if (isVariable) {
+            currentStock = variants[0].stock || 0;
+        } else {
+            currentStock = product.stock || 0;
+        }
+
+        const newStock = Math.max(0, currentStock + delta);
+        setUpdatingStock(id);
+
+        try {
+            const result = await updateProductStock(id, 0, newStock, isVariable);
+            if (result.success) {
+                window.location.reload();
+            }
+        } catch (error) {
+            console.error('Quick stock update failed:', error);
+        } finally {
+            setUpdatingStock(null);
+        }
+    };
+
     return (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+        <div className="space-y-6">
             {/* Filters */}
-            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+            <div className="bg-white dark:bg-gray-800 p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
                 <div className="flex flex-col md:flex-row gap-4">
-                    <input
-                        type="text"
-                        placeholder={dict.search}
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                    />
-                    <select
-                        value={categoryFilter}
-                        onChange={(e) => setCategoryFilter(e.target.value)}
-                        className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                    >
-                        <option value="">{dict.allCategories}</option>
-                        {categories.map((cat) => (
-                            <option key={cat.id} value={cat.documentId}>
-                                {cat.name}
-                            </option>
-                        ))}
-                    </select>
+                    <div className="flex-1 relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input
+                            type="text"
+                            placeholder={dict.search}
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all outline-none"
+                        />
+                    </div>
+                    <div className="relative">
+                        <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                        <select
+                            value={categoryFilter}
+                            onChange={(e) => setCategoryFilter(e.target.value)}
+                            className="pl-10 pr-10 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white appearance-none transition-all outline-none min-w-[200px]"
+                        >
+                            <option value="">{dict.allCategories}</option>
+                            {categories.map((cat) => (
+                                <option key={cat.id} value={cat.id}>
+                                    {cat.name}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
                 </div>
             </div>
 
-            {/* Table */}
-            <div className="overflow-x-auto">
-                <table className="w-full">
-                    <thead className="bg-gray-50 dark:bg-gray-700">
-                        <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                                {dict.image}
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                                {dict.name}
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                                {dict.category}
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                                {dict.price}
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                                {dict.stock}
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                                {dict.aiGenerated}
-                            </th>
-                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                                {dict.actions}
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                        {filteredProducts.map((product) => {
-                            const attributes = product.attributes || (product as any);
-                            const name = attributes.name || 'Sin nombre';
-                            const category = attributes.category || 'Sin categoría';
-                            const price = typeof attributes.price === 'number' ? attributes.price : 0;
-                            const stock = typeof attributes.stock === 'number' ? attributes.stock : 0;
-                            const images = attributes.images?.data || attributes.images || [];
-                            const aiGenerated = attributes.aiGenerated || false;
+            {/* Mobile View: Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:hidden px-1">
+                {filteredProducts.map((product) => (
+                    <ProductCard
+                        key={product.id}
+                        product={product}
+                        onDelete={handleDelete}
+                    />
+                ))}
+            </div>
 
-                            return (
-                                <tr key={product.documentId || product.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="w-12 h-12 bg-gray-200 dark:bg-gray-600 rounded-lg flex items-center justify-center">
-                                            {images[0] ? (
-                                                <img
-                                                    src={`${process.env.NEXT_PUBLIC_STRAPI_URL}${images[0].attributes?.url || images[0].url}`}
-                                                    alt={name}
-                                                    className="w-full h-full object-cover rounded-lg"
-                                                />
+            {/* Desktop View: Table */}
+            <div className="hidden lg:block bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                        <thead className="bg-gray-50/50 dark:bg-gray-900/50 border-b border-gray-100 dark:border-gray-700">
+                            <tr>
+                                <th className="px-6 py-4 text-[10px] font-extrabold text-gray-400 uppercase tracking-widest">{dict.image}</th>
+                                <th className="px-6 py-4 text-[10px] font-extrabold text-gray-400 uppercase tracking-widest">{dict.name}</th>
+                                <th className="px-6 py-4 text-[10px] font-extrabold text-gray-400 uppercase tracking-widest">Tipo</th>
+                                <th className="px-6 py-4 text-[10px] font-extrabold text-gray-400 uppercase tracking-widest">{dict.category}</th>
+                                <th className="px-6 py-4 text-[10px] font-extrabold text-gray-400 uppercase tracking-widest">{dict.price}</th>
+                                <th className="px-6 py-4 text-[10px] font-extrabold text-gray-400 uppercase tracking-widest">{dict.stock} Inv.</th>
+                                <th className="px-6 py-4 text-[10px] font-extrabold text-gray-400 uppercase tracking-widest text-right">{dict.actions}</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50 dark:divide-gray-700/50">
+                            {filteredProducts.map((product) => {
+                                const name = product.name || 'Sin nombre';
+                                const variants = product.variants || [];
+                                const isVariable = variants.length > 0;
+
+                                let price = 0;
+                                if (variants.length > 0) {
+                                    price = variants[0].price || 0;
+                                }
+
+                                let stock = product.stock || 0;
+                                if (isVariable) {
+                                    stock = variants.reduce((sum: number, v: any) => sum + (v.stock || 0), 0);
+                                }
+
+                                const images = product.images || [];
+
+                                return (
+                                    <tr key={product.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors group">
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className="w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-xl flex items-center justify-center overflow-hidden border border-gray-100 dark:border-gray-600 group-hover:scale-110 transition-transform">
+                                                {images[0] ? (
+                                                    <img
+                                                        src={`${process.env.NEXT_PUBLIC_STRAPI_URL || ''}${images[0].url}`}
+                                                        alt={name}
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                ) : (
+                                                    <Package className="w-5 h-5 text-gray-300" />
+                                                )}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex flex-col">
+                                                <span className="text-sm font-bold text-gray-900 dark:text-white">{name}</span>
+                                                <span className="text-[10px] font-mono text-gray-400 uppercase">{product.productNumber}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            {isVariable ? (
+                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 tracking-tight">
+                                                    <Layers className="w-3 h-3" /> VARIABLE
+                                                </span>
                                             ) : (
-                                                <span className="text-gray-400 text-xs">No img</span>
-                                            )}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="text-sm font-medium text-gray-900 dark:text-white flex items-center gap-2">
-                                            {name}
-                                            {attributes.saleBadge && attributes.saleBadge !== 'None' && (
-                                                <span className="text-[10px] px-2 py-0.5 bg-red-100 text-red-800 rounded font-bold uppercase">
-                                                    {attributes.saleBadge}
+                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 tracking-tight">
+                                                    <Package className="w-3 h-3" /> SIMPLE
                                                 </span>
                                             )}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="flex flex-wrap gap-1">
-                                            {attributes.categories?.length > 0 ? (
-                                                attributes.categories.map((cat: any) => (
-                                                    <span key={cat.id} className="px-2 py-1 inline-flex text-[10px] leading-4 font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                                                        {cat.name}
-                                                    </span>
-                                                ))
-                                            ) : (
-                                                <span className="text-gray-400 text-[10px]">Sin categoría</span>
-                                            )}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                                        <div className="flex flex-col">
-                                            {attributes.saleInfo?.discountPercent > 0 && (
-                                                <span className="text-[10px] text-red-500 font-bold">-{attributes.saleInfo.discountPercent}%</span>
-                                            )}
-                                            <span>€{price.toFixed(2)}</span>
-                                            {attributes.variants?.length > 0 && attributes.variants.some((v: any) => v.price && v.price !== price) && (
-                                                <span className="text-[10px] text-gray-400">(Varios precios)</span>
-                                            )}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                                        {attributes.variants && attributes.variants.length > 0 ? (
-                                            <div className="flex flex-col">
-                                                <span>{attributes.variants.reduce((sum: number, v: any) => sum + (v.stock || 0), 0)}</span>
-                                                <span className="text-[10px] text-gray-400">({attributes.variants.length} variantes)</span>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className="flex flex-wrap gap-1">
+                                                {product.categories && product.categories.length > 0 ? (
+                                                    product.categories.map((cat: any) => (
+                                                        <span key={cat.id} className="px-2 py-0.5 inline-flex text-[10px] leading-4 font-bold rounded-lg bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                                                            {cat.name}
+                                                        </span>
+                                                    ))
+                                                ) : (
+                                                    <span className="text-gray-400 text-[10px]">Sin categoría</span>
+                                                )}
                                             </div>
-                                        ) : (
-                                            typeof attributes.stock === 'number' ? attributes.stock : 0
-                                        )}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        {aiGenerated && (
-                                            <Sparkles className="w-5 h-5 text-purple-500" />
-                                        )}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                        <div className="flex justify-end gap-2">
-                                            <Link
-                                                href={`/${lang}/dashboard/products/${product.documentId || product.id}`}
-                                                className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
-                                                title={dict.edit}
-                                            >
-                                                <Edit className="w-5 h-5" />
-                                            </Link>
-                                            <button
-                                                onClick={() => handleDelete(product.documentId || product.id.toString())}
-                                                className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
-                                                title={dict.delete}
-                                            >
-                                                <Trash2 className="w-5 h-5" />
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
-
-                {filteredProducts.length === 0 && (
-                    <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-                        No se encontraron productos
-                    </div>
-                )}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                            <div className="flex flex-col">
+                                                {/* @ts-ignore */}
+                                                {product.saleInfo?.discountPercent && product.saleInfo.discountPercent > 0 && (
+                                                    <span className="text-[10px] text-red-500 font-extrabold">-{product.saleInfo.discountPercent}%</span>
+                                                )}
+                                                <span className="font-extrabold text-gray-900 dark:text-white">€{price.toFixed(2)}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            {!isVariable ? (
+                                                <div className="flex items-center gap-3">
+                                                    <button
+                                                        disabled={updatingStock === product.id}
+                                                        onClick={() => handleQuickStock(product, -1)}
+                                                        className="w-6 h-6 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center hover:bg-red-50 dark:hover:bg-red-900/40 hover:text-red-500 transition-colors text-gray-500"
+                                                    >
+                                                        <Minus className="w-3 h-3" />
+                                                    </button>
+                                                    <span className={`text-sm font-bold w-6 text-center ${stock < 5 ? 'text-red-500' : 'text-gray-900 dark:text-white'}`}>
+                                                        {updatingStock === product.id ? <Loader2 className="w-4 h-4 animate-spin mx-auto text-blue-500" /> : stock}
+                                                    </span>
+                                                    <button
+                                                        disabled={updatingStock === product.id}
+                                                        onClick={() => handleQuickStock(product, 1)}
+                                                        className="w-6 h-6 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center hover:bg-emerald-50 dark:hover:bg-emerald-900/40 hover:text-emerald-500 transition-colors text-gray-500"
+                                                    >
+                                                        <Plus className="w-3 h-3" />
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center gap-2">
+                                                    <span className={`text-sm font-bold ${stock < 5 ? 'text-red-500' : 'text-gray-900 dark:text-white'}`}>
+                                                        {stock}
+                                                    </span>
+                                                    <span className="text-[10px] font-bold text-gray-400">Total</span>
+                                                </div>
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                            <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <Link
+                                                    href={`/${lang}/dashboard/products/${product.id}`}
+                                                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-xl dark:hover:bg-blue-900/20 transition-colors"
+                                                    title={dict.edit}
+                                                >
+                                                    <Edit className="w-5 h-5" />
+                                                </Link>
+                                                <button
+                                                    onClick={() => handleDelete(product.id)}
+                                                    className="p-2 text-red-500 hover:bg-red-50 rounded-xl dark:hover:bg-red-900/20 transition-colors"
+                                                    title={dict.delete}
+                                                >
+                                                    <Trash2 className="w-5 h-5" />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
             </div>
+
+            {filteredProducts.length === 0 && (
+                <div className="text-center py-24 bg-white dark:bg-gray-800 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700">
+                    <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Package className="w-8 h-8 text-gray-400" />
+                    </div>
+                    <p className="text-gray-500 dark:text-gray-400 font-medium">{dict.noProductsFound || 'No se encontraron productos'}</p>
+                    <button
+                        onClick={() => { setSearchTerm(''); setCategoryFilter(''); }}
+                        className="mt-4 text-blue-600 font-bold hover:underline"
+                    >
+                        Limpiar filtros
+                    </button>
+                </div>
+            )}
         </div>
     );
 }
+

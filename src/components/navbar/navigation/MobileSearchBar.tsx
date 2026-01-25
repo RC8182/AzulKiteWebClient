@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { searchProducts } from '@/actions/product-actions';
 import Image from 'next/image';
 import Link from 'next/link';
-import { getStrapiMedia } from '@/lib/strapi';
+import { getStrapiMedia } from '@/lib/media-utils';
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/store/useCart';
 
@@ -67,15 +67,15 @@ export default function MobileSearchBar({ isOpen, onClose, lang, dictionary }: M
     const handleAddToCart = (product: any, e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
-        
+
         const mainImage = product.images?.[0] || product.attributes?.images?.data?.[0];
         const imageUrl = mainImage?.url || mainImage?.attributes?.url || '/placeholder-product.jpg';
         const category = product.categories?.[0] || product.attributes?.categories?.data?.[0]?.attributes;
         const categoryName = category?.name || 'Kitesurf';
-        
+
         const firstVariant = product.variants?.[0];
         const price = firstVariant?.price || 0;
-        
+
         const cartProduct = {
             id: product.id || product.documentId,
             name: product.name,
@@ -85,7 +85,7 @@ export default function MobileSearchBar({ isOpen, onClose, lang, dictionary }: M
             category: categoryName,
             quantity: 1
         };
-        
+
         addToCart(cartProduct);
     };
 
@@ -134,19 +134,19 @@ export default function MobileSearchBar({ isOpen, onClose, lang, dictionary }: M
             <div className="bg-white h-[calc(100vh-90px)] overflow-y-auto">
                 {searchQuery.length >= 2 ? (
                     <>
-                            {isLoading ? (
-                                <div className="p-4">
-                                    {[1, 2, 3].map((i) => (
-                                        <div key={i} className="flex items-center gap-3 p-3 animate-pulse">
-                                            <div className="w-14 h-14 bg-gray-300 rounded-md"></div>
-                                            <div className="flex-1 space-y-2">
-                                                <div className="h-4 bg-gray-300 rounded w-3/4"></div>
-                                                <div className="h-3 bg-gray-300 rounded w-1/2"></div>
-                                                <div className="h-3 bg-gray-300 rounded w-1/4"></div>
-                                            </div>
+                        {isLoading ? (
+                            <div className="p-4">
+                                {[1, 2, 3].map((i) => (
+                                    <div key={i} className="flex items-center gap-3 p-3 animate-pulse">
+                                        <div className="w-14 h-14 bg-gray-300 rounded-md"></div>
+                                        <div className="flex-1 space-y-2">
+                                            <div className="h-4 bg-gray-300 rounded w-3/4"></div>
+                                            <div className="h-3 bg-gray-300 rounded w-1/2"></div>
+                                            <div className="h-3 bg-gray-300 rounded w-1/4"></div>
                                         </div>
-                                    ))}
-                                </div>
+                                    </div>
+                                ))}
+                            </div>
                         ) : searchResults.length > 0 ? (
                             <>
                                 <div className="px-4 py-3 border-b border-gray-200 bg-gray-100">
@@ -154,18 +154,18 @@ export default function MobileSearchBar({ isOpen, onClose, lang, dictionary }: M
                                         {searchResults.length} {searchResults.length === 1 ? 'resultado' : 'resultados'} para "<span className="font-semibold">{searchQuery}</span>"
                                     </div>
                                 </div>
-                                
+
                                 <div className="divide-y divide-gray-200">
                                     {searchResults.map((product) => {
                                         const mainImage = product.images?.[0] || product.attributes?.images?.data?.[0];
                                         const imageUrl = mainImage?.url || mainImage?.attributes?.url || '/placeholder-product.jpg';
                                         const imageAlt = mainImage?.alternativeText || mainImage?.attributes?.alternativeText || product.name;
-                                        
+
                                         const firstVariant = product.variants?.[0];
                                         const price = firstVariant?.price || 0;
                                         const category = product.categories?.[0] || product.attributes?.categories?.data?.[0]?.attributes;
                                         const categoryName = category?.name || 'Kitesurf';
-                                        
+
                                         return (
                                             <div
                                                 key={product.id || product.documentId}
@@ -183,7 +183,7 @@ export default function MobileSearchBar({ isOpen, onClose, lang, dictionary }: M
                                                             />
                                                         )}
                                                     </div>
-                                                    
+
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-start justify-between gap-2">
                                                             <div className="flex-1 min-w-0">
@@ -204,7 +204,7 @@ export default function MobileSearchBar({ isOpen, onClose, lang, dictionary }: M
                                                                     {categoryName}
                                                                 </div>
                                                             </div>
-                                                            
+
                                                             <button
                                                                 onClick={(e) => handleAddToCart(product, e)}
                                                                 className="flex-shrink-0 bg-[var(--color-accent)] text-white p-1.5 rounded-full hover:bg-orange-600 transition-colors"
@@ -219,7 +219,7 @@ export default function MobileSearchBar({ isOpen, onClose, lang, dictionary }: M
                                         );
                                     })}
                                 </div>
-                                
+
                                 <div className="px-4 py-3 border-t border-gray-200 bg-gray-100">
                                     <Link
                                         href={`/${lang}/shop`}
@@ -268,3 +268,4 @@ export default function MobileSearchBar({ isOpen, onClose, lang, dictionary }: M
         </div>
     );
 }
+

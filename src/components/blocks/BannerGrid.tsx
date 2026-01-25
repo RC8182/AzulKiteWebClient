@@ -1,6 +1,6 @@
 'use client';
 
-import { getStrapiMedia } from '@/lib/strapi';
+import { getStrapiMedia } from '@/lib/media-utils';
 import { useParams, useRouter } from 'next/navigation';
 
 interface Banner {
@@ -97,3 +97,4 @@ export default function BannerGrid({ banners = [], gridCols = 2 }: BannerGridPro
         </section>
     );
 }
+

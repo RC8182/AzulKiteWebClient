@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 import { searchProducts } from '@/actions/product-actions';
 import Image from 'next/image';
 import Link from 'next/link';
-import { getStrapiMedia } from '@/lib/strapi';
+import { getStrapiMedia } from '@/lib/media-utils';
 import MobileSearchBar from './MobileSearchBar';
 
 interface MainHeaderProps {
@@ -130,12 +130,12 @@ export default function MainHeader({ onOpenMenu, onOpenCart, lang }: MainHeaderP
                     >
                         <Menu size={24} />
                     </button>
-                            <button
-                                className="text-white min-w-10 h-10 flex items-center justify-center hover:bg-white/10 rounded-full transition-colors"
-                                onClick={() => setIsSearchOpen(true)}
-                            >
-                                <Search size={22} />
-                            </button>
+                    <button
+                        className="text-white min-w-10 h-10 flex items-center justify-center hover:bg-white/10 rounded-full transition-colors"
+                        onClick={() => setIsSearchOpen(true)}
+                    >
+                        <Search size={22} />
+                    </button>
                 </div>
 
                 {/* Logo Section */}
@@ -333,3 +333,4 @@ export default function MainHeader({ onOpenMenu, onOpenCart, lang }: MainHeaderP
         </div>
     );
 }
+
