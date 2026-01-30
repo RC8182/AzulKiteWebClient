@@ -2,13 +2,11 @@
 
 import { useCart } from '@/store/useCart';
 import { ShoppingBag, ChevronRight, Trash2, Plus, Minus, CreditCard, ShieldCheck, Truck } from 'lucide-react';
-import { loadStripe } from '@stripe/stripe-js';
 import { createCheckoutSession } from '@/actions/checkout';
 import { useState, use } from 'react';
 import Link from 'next/link';
 import { getDictionary } from './db';
-
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '');
+import AddonPaymentForm from '@/components/checkout/AddonPaymentForm';
 
 interface CheckoutPageProps {
     params: Promise<{
@@ -20,26 +18,58 @@ export default function CheckoutPage({ params }: CheckoutPageProps) {
     const { lang } = use(params);
     const { items, removeItem, updateQuantity, getTotalPrice, getTotalItems } = useCart();
     const [isLoading, setIsLoading] = useState(false);
+    const [paymentData, setPaymentData] = useState<{ url: string; params: string; signature: string; version: string } | null>(null);
     const dict = getDictionary(lang);
 
-    const handleCheckout = async () => {
+    // Form State
+    const [formData, setFormData] = useState({
+        email: '',
+        firstName: '',
+        lastName: '',
+        address: '',
+        city: '',
+        postalCode: '',
+        country: 'ES',
+        phone: ''
+    });
+
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
+    const handleCheckout = async (e: React.FormEvent) => {
+        e.preventDefault();
         setIsLoading(true);
         try {
-            const { sessionId, error } = await createCheckoutSession({
-                customer_email: 'test@example.com', // In a real app, get this from a form or auth
-                products: items.map(item => ({ id: item.id, quantity: item.quantity })),
+            const result = await createCheckoutSession({
+                customer_email: formData.email,
+                shipping_address: {
+                    firstName: formData.firstName,
+                    lastName: formData.lastName,
+                    addressLine1: formData.address,
+                    city: formData.city,
+                    postalCode: formData.postalCode,
+                    country: formData.country,
+                    phone: formData.phone
+                },
+                products: items.map(item => ({
+                    id: String(item.id),
+                    quantity: item.quantity,
+                    price: item.price,
+                    name: item.name,
+                    image: item.image,
+                    color: item.variant?.color,
+                    size: item.variant?.size
+                })),
             });
 
-            if (error) throw new Error(error);
-            if (!sessionId) throw new Error('No session ID returned');
+            if (result.error) throw new Error(result.error);
+            if (!result.paymentData) throw new Error('No payment data returned');
 
-            const stripe = await stripePromise;
-            if (!stripe) throw new Error('Stripe failed to load');
-
-            window.location.href = `https://checkout.stripe.com/pay/${sessionId}`;
+            setPaymentData(result.paymentData);
+            // Form inside AddonPaymentForm will auto-submit
         } catch (err: any) {
             alert(err.message || 'Error processing payment');
-        } finally {
             setIsLoading(false);
         }
     };
@@ -65,6 +95,9 @@ export default function CheckoutPage({ params }: CheckoutPageProps) {
 
     return (
         <div className="min-h-screen bg-gray-50 pb-24">
+            {/* Hidden Auto-Submit Form */}
+            {paymentData && <AddonPaymentForm {...paymentData} />}
+
             {/* Header */}
             <div className="bg-white border-b border-gray-100 mb-8">
                 <div className="container mx-auto px-4 py-8">
@@ -81,8 +114,58 @@ export default function CheckoutPage({ params }: CheckoutPageProps) {
 
             <div className="container mx-auto px-4">
                 <div className="flex flex-col lg:flex-row gap-12">
-                    {/* Items List */}
-                    <div className="flex-grow space-y-6">
+                    {/* Left Column: Form & Items */}
+                    <div className="flex-grow space-y-8">
+
+                        {/* Shipping Form */}
+                        <div className="bg-white p-8 shadow-sm border border-gray-100">
+                            <h2 className="text-xs font-black uppercase tracking-[0.2em] text-[#0051B5] mb-8 flex items-center gap-2">
+                                <ShieldCheck size={14} />
+                                {dict.checkout} {/* Assuming 'Checkout' or 'Shipping' */}
+                            </h2>
+                            <form id="checkout-form" onSubmit={handleCheckout} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="md:col-span-2">
+                                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Email</label>
+                                    <input required type="email" name="email" value={formData.email} onChange={handleInputChange} className="w-full bg-gray-50 border border-gray-200 p-3 rounded-lg text-sm font-medium focus:outline-none focus:border-[#0051B5] transition-colors" placeholder="tu@email.com" />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Nombre</label>
+                                    <input required type="text" name="firstName" value={formData.firstName} onChange={handleInputChange} className="w-full bg-gray-50 border border-gray-200 p-3 rounded-lg text-sm font-medium focus:outline-none focus:border-[#0051B5] transition-colors" />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Apellidos</label>
+                                    <input required type="text" name="lastName" value={formData.lastName} onChange={handleInputChange} className="w-full bg-gray-50 border border-gray-200 p-3 rounded-lg text-sm font-medium focus:outline-none focus:border-[#0051B5] transition-colors" />
+                                </div>
+                                <div className="md:col-span-2">
+                                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Dirección</label>
+                                    <input required type="text" name="address" value={formData.address} onChange={handleInputChange} className="w-full bg-gray-50 border border-gray-200 p-3 rounded-lg text-sm font-medium focus:outline-none focus:border-[#0051B5] transition-colors" />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Ciudad</label>
+                                    <input required type="text" name="city" value={formData.city} onChange={handleInputChange} className="w-full bg-gray-50 border border-gray-200 p-3 rounded-lg text-sm font-medium focus:outline-none focus:border-[#0051B5] transition-colors" />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Código Postal</label>
+                                    <input required type="text" name="postalCode" value={formData.postalCode} onChange={handleInputChange} className="w-full bg-gray-50 border border-gray-200 p-3 rounded-lg text-sm font-medium focus:outline-none focus:border-[#0051B5] transition-colors" />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">País</label>
+                                    <select name="country" value={formData.country} onChange={handleInputChange} className="w-full bg-gray-50 border border-gray-200 p-3 rounded-lg text-sm font-medium focus:outline-none focus:border-[#0051B5] transition-colors">
+                                        <option value="ES">España</option>
+                                        <option value="PT">Portugal</option>
+                                        <option value="FR">Francia</option>
+                                        <option value="IT">Italia</option>
+                                        <option value="DE">Alemania</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Teléfono</label>
+                                    <input required type="tel" name="phone" value={formData.phone} onChange={handleInputChange} className="w-full bg-gray-50 border border-gray-200 p-3 rounded-lg text-sm font-medium focus:outline-none focus:border-[#0051B5] transition-colors" />
+                                </div>
+                            </form>
+                        </div>
+
+                        {/* Items List */}
                         <div className="bg-white p-8 shadow-sm border border-gray-100">
                             <h2 className="text-xs font-black uppercase tracking-[0.2em] text-[#0051B5] mb-8 flex items-center gap-2">
                                 <ShoppingBag size={14} />
@@ -176,12 +259,13 @@ export default function CheckoutPage({ params }: CheckoutPageProps) {
                             </div>
 
                             <button
-                                onClick={handleCheckout}
-                                disabled={isLoading}
+                                form="checkout-form"
+                                type="submit"
+                                disabled={isLoading || !!paymentData}
                                 className="w-full bg-[#FF6600] text-white font-black py-4 text-xs uppercase tracking-widest hover:bg-white hover:text-[#003366] transition-all flex items-center justify-center gap-3 italic disabled:opacity-50"
                             >
-                                {isLoading ? (
-                                    <span className="animate-pulse">{dict.processing}</span>
+                                {isLoading || paymentData ? (
+                                    <span className="animate-pulse">{paymentData ? 'Redirigiendo...' : dict.processing}</span>
                                 ) : (
                                     <>
                                         <CreditCard size={16} />

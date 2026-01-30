@@ -1,0 +1,15 @@
+{
+  "testTime": "2026-01-30T11:36:44.337Z",
+  "user": {
+    "email": "admin@azulkite.com",
+    "name": "Super Admin",
+    "role": "ADMIN"
+  },
+  "token": "a7bac9d7a93f3b4b753b79a408a01ef6",
+  "urls": {
+    "withEncoding": "http://localhost:3000/api/auth/callback/email?token=a7bac9d7a93f3b4b753b79a408a01ef6&email=admin%40azulkite.com",
+    "withoutEncoding": "http://localhost:3000/api/auth/callback/email?token=a7bac9d7a93f3b4b753b79a408a01ef6&email=admin@azulkite.com",
+    "differentOrder": "http://localhost:3000/api/auth/callback/email?email=admin%40azulkite.com&token=a7bac9d7a93f3b4b753b79a408a01ef6"
+  },
+  "expires": "2026-03-01T11:36:44.273Z"
+}

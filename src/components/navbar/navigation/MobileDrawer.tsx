@@ -23,7 +23,7 @@ export default function MobileDrawer({ isOpen, onClose, lang, categories = [] }:
     // 1. Identify main categories (those whose parent is named "Shop" or has slug "shop")
     const shopCat = categories.find(c => c.slug === 'shop' || c.slug === 'tienda');
     const rootCategories = shopCat
-        ? categories.filter(c => c.parent?.documentId === shopCat?.documentId)
+        ? categories.filter(c => c.parent?.id === shopCat?.id)
         : categories.filter(c => !c.parent);
 
     // 2. Localized navigation from Strapi categories
@@ -33,7 +33,7 @@ export default function MobileDrawer({ isOpen, onClose, lang, categories = [] }:
             name: cat.name,
             href: `/${lang}/${cat.slug}`,
             subcategories: categories
-                .filter(sub => sub.parent?.documentId === cat.documentId)
+                .filter(sub => sub.parent?.id === cat.id)
                 .map(sub => ({
                     name: sub.name,
                     href: `/${lang}/${rootPath}/${sub.slug}`
@@ -129,32 +129,32 @@ export default function MobileDrawer({ isOpen, onClose, lang, categories = [] }:
                         ))}
                     </div>
 
-                     {/* Wind Widget in Menu */}
-                     <div className="mt-6 p-6 flex flex-col gap-6 w-full">
-                         <a 
-                             href="https://canarywindreport.com" 
-                             target="_blank" 
-                             rel="noopener noreferrer"
-                             className="flex items-center gap-3 border-l-4 border-[var(--color-accent)] pl-4 py-3 bg-gray-50 rounded-r-lg hover:bg-gray-100 transition-colors"
-                         >
-                             <Wind size={20} className={`${status === 'connected' ? 'text-green-500' : status === 'polling' ? 'text-yellow-500' : 'text-red-500'} shrink-0`} />
-                             <div className="flex flex-col">
-                                 <span className="text-[8px] text-gray-400 font-bold uppercase tracking-widest leading-none">{t.topBar.wind} {t.topBar.location}</span>
-                                 <span className="text-[var(--color-accent)] font-black italic text-base leading-tight uppercase">
-                                     {windSpeed !== null ? `${windSpeed} kts` : '-- kts'}
-                                     {windGust !== null && windSpeed !== null && windGust > windSpeed && (
-                                         <span className="text-[var(--color-accent)]">
-                                             / {windGust}kts
-                                         </span>
-                                     )}
-                                     {windDirection !== null && (
-                                         <span className="text-[var(--color-accent)] ml-1">
-                                             {getWindDirectionText(windDirection)} {windDirection}º
-                                         </span>
-                                     )}
-                                 </span>
-                             </div>
-                         </a>
+                    {/* Wind Widget in Menu */}
+                    <div className="mt-6 p-6 flex flex-col gap-6 w-full">
+                        <a
+                            href="https://canarywindreport.com"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-3 border-l-4 border-[var(--color-accent)] pl-4 py-3 bg-gray-50 rounded-r-lg hover:bg-gray-100 transition-colors"
+                        >
+                            <Wind size={20} className={`${status === 'connected' ? 'text-green-500' : status === 'polling' ? 'text-yellow-500' : 'text-red-500'} shrink-0`} />
+                            <div className="flex flex-col">
+                                <span className="text-[8px] text-gray-400 font-bold uppercase tracking-widest leading-none">{t.topBar.wind} {t.topBar.location}</span>
+                                <span className="text-[var(--color-accent)] font-black italic text-base leading-tight uppercase">
+                                    {windSpeed !== null ? `${windSpeed} kts` : '-- kts'}
+                                    {windGust !== null && windSpeed !== null && windGust > windSpeed && (
+                                        <span className="text-[var(--color-accent)]">
+                                            / {windGust}kts
+                                        </span>
+                                    )}
+                                    {windDirection !== null && (
+                                        <span className="text-[var(--color-accent)] ml-1">
+                                            {getWindDirectionText(windDirection)} {windDirection}º
+                                        </span>
+                                    )}
+                                </span>
+                            </div>
+                        </a>
 
                         <div className="flex flex-col gap-3 mt-2">
                             <a href={`/${lang}/blog`} className="text-gray-400 font-bold tracking-widest text-[10px] uppercase hover:text-[#0051B5]" onClick={onClose}>{md.blog}</a>

@@ -1,6 +1,6 @@
 'use client';
 
-import { Search, User, ShoppingCart, Menu, X, Loader2, ShoppingBag } from 'lucide-react';
+import { Search, User, ShoppingCart, Menu, X, Loader2, ShoppingBag, LogOut, Settings, LayoutDashboard } from 'lucide-react';
 import { useCart } from '@/store/useCart';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { dictionary } from '../db';
@@ -10,6 +10,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { getStrapiMedia } from '@/lib/media-utils';
 import MobileSearchBar from './MobileSearchBar';
+import { useSession, signOut } from 'next-auth/react';
 
 interface MainHeaderProps {
     onOpenMenu?: () => void;
@@ -26,8 +27,11 @@ export default function MainHeader({ onOpenMenu, onOpenCart, lang }: MainHeaderP
     const [searchResults, setSearchResults] = useState<any[]>([]);
     const [showResults, setShowResults] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
     const searchRef = useRef<HTMLDivElement>(null);
+    const userMenuRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
+    const { data: session, status: authStatus } = useSession();
     const router = useRouter();
 
     const t = dictionary[lang as keyof typeof dictionary]?.header || dictionary['es'].header;
@@ -40,6 +44,9 @@ export default function MainHeader({ onOpenMenu, onOpenCart, lang }: MainHeaderP
         const handleClickOutside = (event: MouseEvent) => {
             if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
                 setShowResults(false);
+            }
+            if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+                setIsUserMenuOpen(false);
             }
         };
 
@@ -300,10 +307,70 @@ export default function MainHeader({ onOpenMenu, onOpenCart, lang }: MainHeaderP
 
                 {/* Right: Actions */}
                 <div className="flex items-center gap-1 md:gap-4 shrink-0">
-                    <a href={`/${lang}/account`} className="flex flex-col items-center gap-0.5 text-white hover:opacity-80 p-1 group">
-                        <User size={22} strokeWidth={1.5} className="group-hover:scale-110 transition-transform" />
-                        <span className="hidden md:block text-[9px] font-bold uppercase tracking-widest leading-none">{t.account}</span>
-                    </a>
+                    <div className="relative" ref={userMenuRef}>
+                        {session ? (
+                            <button
+                                onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                                className="flex flex-col items-center gap-0.5 text-white hover:opacity-80 p-1 group"
+                            >
+                                <div className="w-6 h-6 rounded-full bg-[var(--color-accent)] flex items-center justify-center text-[10px] font-black italic">
+                                    {session.user?.name?.substring(0, 1).toUpperCase() || session.user?.email?.substring(0, 1).toUpperCase()}
+                                </div>
+                                <span className="hidden md:block text-[9px] font-bold uppercase tracking-widest leading-none">
+                                    {session.user?.name?.split(' ')[0] || t.account}
+                                </span>
+                            </button>
+                        ) : (
+                            <a href={`/${lang}/account`} className="flex flex-col items-center gap-0.5 text-white hover:opacity-80 p-1 group">
+                                <User size={22} strokeWidth={1.5} className="group-hover:scale-110 transition-transform" />
+                                <span className="hidden md:block text-[9px] font-bold uppercase tracking-widest leading-none">{t.account}</span>
+                            </a>
+                        )}
+
+                        {/* User Dropdown Menu */}
+                        {isUserMenuOpen && session && (
+                            <div className="absolute top-full right-0 mt-2 w-48 bg-white rounded-lg shadow-xl py-2 z-[60] border border-gray-100 animate-in fade-in slide-in-from-top-2 duration-200">
+                                <div className="px-4 py-2 border-b border-gray-100 mb-1">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-[#0051B5] truncate">
+                                        {session.user?.name || 'Usuario'}
+                                    </p>
+                                    <p className="text-[9px] font-medium text-gray-400 truncate">
+                                        {session.user?.email}
+                                    </p>
+                                </div>
+                                <Link
+                                    href={`/${lang}/account`}
+                                    className="flex items-center gap-3 px-4 py-2 text-xs font-bold text-gray-700 hover:bg-gray-50 hover:text-[#0051B5] transition-colors"
+                                    onClick={() => setIsUserMenuOpen(false)}
+                                >
+                                    <Settings size={14} />
+                                    {t.profile}
+                                </Link>
+
+                                {/* Dashboard link for Admins */}
+                                {session.user && (session.user as any).role === 'ADMIN' && (
+                                    <Link
+                                        href={`/${lang}/dashboard`}
+                                        className="flex items-center gap-3 px-4 py-2 text-xs font-bold text-[#0051B5] hover:bg-blue-50 transition-colors"
+                                        onClick={() => setIsUserMenuOpen(false)}
+                                    >
+                                        <LayoutDashboard size={14} />
+                                        {t.dashboard}
+                                    </Link>
+                                )}
+                                <button
+                                    onClick={() => {
+                                        setIsUserMenuOpen(false);
+                                        signOut();
+                                    }}
+                                    className="w-full flex items-center gap-3 px-4 py-2 text-xs font-bold text-red-600 hover:bg-red-50 transition-colors"
+                                >
+                                    <LogOut size={14} />
+                                    {t.logout}
+                                </button>
+                            </div>
+                        )}
+                    </div>
 
                     <div className="relative group cursor-pointer p-1" onClick={onOpenCart}>
                         <div className="flex flex-col items-center gap-0.5 text-white">
@@ -330,7 +397,7 @@ export default function MainHeader({ onOpenMenu, onOpenCart, lang }: MainHeaderP
                 lang={lang}
                 dictionary={dictionary}
             />
-        </div>
+        </div >
     );
 }
 

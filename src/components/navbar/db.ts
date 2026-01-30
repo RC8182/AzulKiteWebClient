@@ -9,6 +9,9 @@ export const dictionary = {
             searchPlaceholderMobile: "Buscar...",
             searchPlaceholderDesktop: "¿Qué estás buscando?",
             account: "Cuenta",
+            profile: "Mi Perfil",
+            dashboard: "Panel de Control",
+            logout: "Cerrar Sesión",
             cart: "Carrito"
         },
         nav: {
@@ -69,6 +72,9 @@ export const dictionary = {
             searchPlaceholderMobile: "Search...",
             searchPlaceholderDesktop: "What are you looking for?",
             account: "Account",
+            profile: "My Profile",
+            dashboard: "Dashboard",
+            logout: "Logout",
             cart: "Cart"
         },
         nav: {
@@ -129,6 +135,9 @@ export const dictionary = {
             searchPlaceholderMobile: "Cerca...",
             searchPlaceholderDesktop: "Cosa stai cercando?",
             account: "Conto",
+            profile: "Il mio profilo",
+            dashboard: "Pannello di Controllo",
+            logout: "Esci",
             cart: "Carrello"
         },
         nav: {

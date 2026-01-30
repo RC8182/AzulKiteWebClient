@@ -10,6 +10,7 @@ interface CategorySidebarProps {
     currentCategorySlug?: string;
     onClose?: () => void;
     lang: string;
+    enabledFilters?: string[];
 }
 
 export default function CategorySidebar({
@@ -17,7 +18,8 @@ export default function CategorySidebar({
     brands = [],
     currentCategorySlug,
     onClose,
-    lang
+    lang,
+    enabledFilters = ['categories', 'price', 'brands', 'search']
 }: CategorySidebarProps) {
     const { filters, setFilter, clearFilters } = useProductFilters();
 
@@ -36,8 +38,27 @@ export default function CategorySidebar({
             </div>
 
             <div className="p-6 space-y-8">
+                {/* Search */}
+                {enabledFilters.includes('search') && (
+                    <div>
+                        <h3 className="text-[10px] font-black text-[#003366] uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+                            <span className="w-2 h-[2px] bg-[#FF6600]"></span>
+                            Buscar
+                        </h3>
+                        <div className="relative">
+                            <input
+                                type="text"
+                                placeholder="Buscar..."
+                                value={filters.search}
+                                onChange={(e) => setFilter('search', e.target.value)}
+                                className="w-full px-3 py-2 text-[11px] font-bold border border-gray-200 outline-none focus:border-[#FF6600] transition-colors"
+                            />
+                        </div>
+                    </div>
+                )}
+
                 {/* Categories */}
-                {categories.length > 0 && (
+                {categories.length > 0 && enabledFilters.includes('categories') && (
                     <div>
                         <h3 className="text-[10px] font-black text-[#003366] uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
                             <span className="w-2 h-[2px] bg-[#FF6600]"></span>
@@ -61,40 +82,42 @@ export default function CategorySidebar({
                 )}
 
                 {/* Price Range */}
-                <div>
-                    <h3 className="text-[10px] font-black text-[#003366] uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
-                        <span className="w-2 h-[2px] bg-[#FF6600]"></span>
-                        Rango de Precio
-                    </h3>
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-3">
-                            <div className="flex-1 relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[9px] font-black text-gray-400">€</span>
-                                <input
-                                    type="number"
-                                    placeholder="Min"
-                                    value={filters.minPrice}
-                                    onChange={(e) => handlePriceChange(e, 'minPrice')}
-                                    className="w-full pl-6 pr-3 py-2 text-[11px] font-bold border border-gray-200 outline-none focus:border-[#FF6600] transition-colors"
-                                />
-                            </div>
-                            <div className="w-2 h-[1px] bg-gray-300"></div>
-                            <div className="flex-1 relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[9px] font-black text-gray-400">€</span>
-                                <input
-                                    type="number"
-                                    placeholder="Max"
-                                    value={filters.maxPrice}
-                                    onChange={(e) => handlePriceChange(e, 'maxPrice')}
-                                    className="w-full pl-6 pr-3 py-2 text-[11px] font-bold border border-gray-200 outline-none focus:border-[#FF6600] transition-colors"
-                                />
+                {enabledFilters.includes('price') && (
+                    <div>
+                        <h3 className="text-[10px] font-black text-[#003366] uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+                            <span className="w-2 h-[2px] bg-[#FF6600]"></span>
+                            Rango de Precio
+                        </h3>
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-3">
+                                <div className="flex-1 relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[9px] font-black text-gray-400">€</span>
+                                    <input
+                                        type="number"
+                                        placeholder="Min"
+                                        value={filters.minPrice}
+                                        onChange={(e) => handlePriceChange(e, 'minPrice')}
+                                        className="w-full pl-6 pr-3 py-2 text-[11px] font-bold border border-gray-200 outline-none focus:border-[#FF6600] transition-colors"
+                                    />
+                                </div>
+                                <div className="w-2 h-[1px] bg-gray-300"></div>
+                                <div className="flex-1 relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[9px] font-black text-gray-400">€</span>
+                                    <input
+                                        type="number"
+                                        placeholder="Max"
+                                        value={filters.maxPrice}
+                                        onChange={(e) => handlePriceChange(e, 'maxPrice')}
+                                        className="w-full pl-6 pr-3 py-2 text-[11px] font-bold border border-gray-200 outline-none focus:border-[#FF6600] transition-colors"
+                                    />
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
+                )}
 
                 {/* Brands */}
-                {brands.length > 0 && (
+                {brands.length > 0 && enabledFilters.includes('brands') && (
                     <div>
                         <h3 className="text-[10px] font-black text-[#003366] uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
                             <span className="w-2 h-[2px] bg-[#FF6600]"></span>

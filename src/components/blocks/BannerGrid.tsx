@@ -55,7 +55,7 @@ export default function BannerGrid({ banners = [], gridCols = 2 }: BannerGridPro
     };
 
     return (
-        <section className="container mx-auto px-6 py-12">
+        <section className="container mx-auto px-4 md:px-6 py-8 md:py-12">
             <div className={`grid grid-cols-1 md:grid-cols-${gridCols} gap-6`}>
                 {banners.map((banner) => (
                     <div

@@ -181,9 +181,18 @@ export default function ProductTable({ products, lang }: ProductTableProps) {
                                             <div className="w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-xl flex items-center justify-center overflow-hidden border border-gray-100 dark:border-gray-600 group-hover:scale-110 transition-transform">
                                                 {images[0] ? (
                                                     <img
-                                                        src={`${process.env.NEXT_PUBLIC_STRAPI_URL || ''}${images[0].url}`}
+                                                        src={images[0].url?.startsWith('/uploads/')
+                                                            ? images[0].url
+                                                            : `${process.env.NEXT_PUBLIC_STRAPI_URL || ''}${images[0].url}`}
                                                         alt={name}
                                                         className="w-full h-full object-cover"
+                                                        onError={(e: any) => {
+                                                            e.currentTarget.style.display = 'none';
+                                                            const fallback = document.createElement('div');
+                                                            fallback.className = 'w-5 h-5 text-gray-300 flex items-center justify-center';
+                                                            fallback.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-package"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>';
+                                                            e.currentTarget.parentElement?.appendChild(fallback);
+                                                        }}
                                                     />
                                                 ) : (
                                                     <Package className="w-5 h-5 text-gray-300" />

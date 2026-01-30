@@ -69,7 +69,7 @@ export async function getProducts(
       if (filters.category) {
         where.categories = {
           some: {
-            slug: filters.category
+            slug: Array.isArray(filters.category) ? { in: filters.category } : filters.category
           }
         };
       }
@@ -97,6 +97,20 @@ export async function getProducts(
 
       if (filters.year) {
         where.year = filters.year;
+      }
+
+      if (filters.minPrice !== undefined && filters.minPrice !== '') {
+        const min = parseFloat(filters.minPrice);
+        if (!isNaN(min)) {
+          where.price = { ...where.price, gte: min };
+        }
+      }
+
+      if (filters.maxPrice !== undefined && filters.maxPrice !== '') {
+        const max = parseFloat(filters.maxPrice);
+        if (!isNaN(max)) {
+          where.price = { ...where.price, lte: max };
+        }
       }
     }
 
@@ -322,16 +336,26 @@ export async function getProductBySlug(slug: string, locale: string = 'es') {
 
     const translation = product.translations[0] || {};
 
+    // Calcular stock total y precio base
+    const totalStock = product.variants.reduce((sum, v) => sum + (v.stock || 0), 0);
+    const minPrice = product.variants.length > 0
+      ? Math.min(...product.variants.map(v => v.price))
+      : 0;
+
     return {
       ...product,
       id: product.id,
       documentId: product.id,
+      stock: totalStock,
+      price: minPrice,
       attributes: {
         ...product,
         name: translation.name,
         description: translation.description,
         shortDescription: translation.shortDescription,
-        locale
+        locale,
+        stock: totalStock,
+        price: minPrice
       },
       name: translation.name,
       description: translation.description,

@@ -7,6 +7,10 @@ const TextBlock = dynamic(() => import('./TextBlock'), { ssr: true });
 const ProductGrid = dynamic(() => import('./ProductShowCase'), { ssr: true });
 const BannerGrid = dynamic(() => import('./BannerGrid'), { ssr: true });
 const ScrollingBanner = dynamic(() => import('./ScrollingBanner'), { ssr: true });
+const FeaturesList = dynamic(() => import('./FeaturesList'), { ssr: true });
+const FaqSection = dynamic(() => import('./FaqSection'), { ssr: true });
+const ContactForm = dynamic(() => import('./ContactForm'), { ssr: true });
+const Testimonials = dynamic(() => import('./Testimonials'), { ssr: true });
 
 const componentsMap: { [key: string]: any } = {
     'blocks.hero-section': HeroSection,
@@ -16,6 +20,10 @@ const componentsMap: { [key: string]: any } = {
     'blocks.text-block': TextBlock,
     'blocks.banner-grid': BannerGrid,
     'blocks.scrolling-banner': ScrollingBanner,
+    'blocks.features-list': FeaturesList,
+    'blocks.faq-section': FaqSection,
+    'blocks.contact-form': ContactForm,
+    'blocks.testimonials': Testimonials,
 };
 
 const typeToComponentMap: { [key: string]: string } = {
@@ -26,6 +34,10 @@ const typeToComponentMap: { [key: string]: string } = {
     'rich-text': 'blocks.text-block',
     'banner-grid': 'blocks.banner-grid',
     'scrolling-banner': 'blocks.scrolling-banner',
+    'features-list': 'blocks.features-list',
+    'faq-section': 'blocks.faq-section',
+    'contact-form': 'blocks.contact-form',
+    'testimonials': 'blocks.testimonials',
 };
 
 export default function BlockRenderer({ blocks, category }: { blocks: any[], category?: any }) {
@@ -91,6 +103,10 @@ export default function BlockRenderer({ blocks, category }: { blocks: any[], cat
                                     layout: config.layout,
                                     limit: config.limit,
                                     showFilters: config.showFilters,
+                                    enabledFilters: config.enabledFilters,
+                                    filterCategoriesMode: config.filterCategoriesMode,
+                                    manualFilterCategories: config.manualFilterCategories,
+                                    selectedCategorySlug: config.category,
                                     manualProducts: content.manualProducts
                                 };
                                 break;
@@ -113,6 +129,30 @@ export default function BlockRenderer({ blocks, category }: { blocks: any[], cat
                                         image: banner.image ? { url: banner.image } : null
                                     })),
                                     gridCols: config.gridCols
+                                };
+                                break;
+                            case 'features-list':
+                                normalizedBlock = {
+                                    ...normalizedBlock,
+                                    features: content.features
+                                };
+                                break;
+                            case 'faq-section':
+                                normalizedBlock = {
+                                    ...normalizedBlock,
+                                    faqs: content.faqs
+                                };
+                                break;
+                            case 'contact-form':
+                                normalizedBlock = {
+                                    ...normalizedBlock,
+                                    title: content.title
+                                };
+                                break;
+                            case 'testimonials':
+                                normalizedBlock = {
+                                    ...normalizedBlock,
+                                    testimonials: content.testimonials
                                 };
                                 break;
                         }

@@ -8,6 +8,9 @@ export const dictionary = {
         media: 'Multimedia',
         settings: 'Configuración',
         navStock: 'Stock',
+        profile: 'Mi Perfil',
+        logout: 'Cerrar Sesión',
+        home: 'Ir a la Web',
 
         // Product List
         productList: 'Lista de Productos',
@@ -86,6 +89,9 @@ export const dictionary = {
         media: 'Media',
         settings: 'Settings',
         navStock: 'Stock',
+        profile: 'My Profile',
+        logout: 'Logout',
+        home: 'Go to Website',
 
         // Product List
         productList: 'Product List',
@@ -164,6 +170,9 @@ export const dictionary = {
         media: 'Media',
         settings: 'Impostazioni',
         navStock: 'Scorta',
+        profile: 'Il mio profilo',
+        logout: 'Esci',
+        home: 'Vai al sito web',
 
         // Product List
         productList: 'Elenco Prodotti',

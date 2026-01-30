@@ -115,6 +115,34 @@ export default function BlockManager({ blocks, onChange, activeLocale }: BlockMa
                 >
                     <Plus size={16} /> Scrolling Banner
                 </button>
+                <button
+                    type="button"
+                    onClick={() => handleAddBlock('features-list')}
+                    className="flex items-center gap-1 px-3 py-2 bg-yellow-50 text-yellow-600 hover:bg-yellow-100 rounded border border-yellow-200 transition-colors text-sm font-medium"
+                >
+                    <Plus size={16} /> Características
+                </button>
+                <button
+                    type="button"
+                    onClick={() => handleAddBlock('faq-section')}
+                    className="flex items-center gap-1 px-3 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded border border-red-200 transition-colors text-sm font-medium"
+                >
+                    <Plus size={16} /> FAQ
+                </button>
+                <button
+                    type="button"
+                    onClick={() => handleAddBlock('contact-form')}
+                    className="flex items-center gap-1 px-3 py-2 bg-cyan-50 text-cyan-600 hover:bg-cyan-100 rounded border border-cyan-200 transition-colors text-sm font-medium"
+                >
+                    <Plus size={16} /> Form. Contacto
+                </button>
+                <button
+                    type="button"
+                    onClick={() => handleAddBlock('testimonials')}
+                    className="flex items-center gap-1 px-3 py-2 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded border border-rose-200 transition-colors text-sm font-medium"
+                >
+                    <Plus size={16} /> Testimonios
+                </button>
             </div>
         </div>
     );

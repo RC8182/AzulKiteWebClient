@@ -35,6 +35,7 @@ export function useProductFilters() {
             search: searchParams.get('search') || '',
             minPrice: searchParams.get('minPrice') || '',
             maxPrice: searchParams.get('maxPrice') || '',
+            brand: searchParams.get('brand') || '',
         },
         setFilter,
         clearFilters,

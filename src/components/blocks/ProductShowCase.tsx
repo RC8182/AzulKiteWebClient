@@ -4,7 +4,7 @@ import React, { useMemo, useRef, useCallback, useState, useEffect } from 'react'
 import { getStrapiMedia } from '@/lib/media-utils';
 import { useCart } from '@/store/useCart';
 import { useProductFilters } from '@/hooks/useProductFilters';
-import { ShoppingCart, Filter, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ShoppingCart, Filter, Eye, ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import { getProducts } from '@/actions/product-actions';
 import { getCategories, getCategoryBySlug } from '@/actions/category-actions';
 import Image from 'next/image';
@@ -18,9 +18,13 @@ interface ProductGridProps {
     manualProducts?: any; // Renamed from products
     layout?: 'grid' | 'carousel';
     selectedCategory?: any;
+    selectedCategorySlug?: string;
     mode?: 'all' | 'category' | 'manual';
     limit?: number;
     showFilters?: boolean;
+    enabledFilters?: string[];
+    filterCategoriesMode?: 'auto' | 'manual';
+    manualFilterCategories?: string[];
     category?: any; // Current category from page context
 }
 
@@ -90,7 +94,7 @@ function ProductCarouselView({ products, addItem }: ProductViewProps) {
 // Internal Component: Grid View
 function ProductGridView({ products, addItem }: ProductViewProps) {
     return (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
             {products.map((product) => (
                 <ProductCard key={product.id} product={product} addItem={addItem} />
             ))}
@@ -102,19 +106,23 @@ export default function ProductGrid({
     title,
     manualProducts: initialProducts,
     selectedCategory,
+    selectedCategorySlug,
     mode = 'all',
     layout = 'carousel',
     limit,
     showFilters = true,
+    enabledFilters = ['categories', 'price', 'brands', 'search'],
+    filterCategoriesMode = 'auto',
+    manualFilterCategories = [],
     category: pageCategory
 }: ProductGridProps) {
     const { addItem } = useCart();
     const { lang, slug } = useParams();
-     const [fetchedProducts, setFetchedProducts] = useState<any[]>([]);
-     const [fetchedCategories, setFetchedCategories] = useState<any[]>([]);
-     const [subCategories, setSubCategories] = useState<any[]>([]);
-     const [currentCategory, setCurrentCategory] = useState<any>(null);
-     const [isLoading, setIsLoading] = useState(false);
+    const [fetchedProducts, setFetchedProducts] = useState<any[]>([]);
+    const [fetchedCategories, setFetchedCategories] = useState<any[]>([]);
+    const [subCategories, setSubCategories] = useState<any[]>([]);
+    const [currentCategory, setCurrentCategory] = useState<any>(null);
+    const [isLoading, setIsLoading] = useState(false);
 
     // Ensure layout has a fallback if null comes from Strapi
     const safeLayout = layout || 'carousel';
@@ -127,7 +135,7 @@ export default function ProductGrid({
 
     // Use page category if available, otherwise use block's selected category
     const blockCategoryName = pageCategory?.name || selectedCategory?.data?.attributes?.name || selectedCategory?.name;
-    const blockCategorySlug = pageCategory?.slug || selectedCategory?.data?.attributes?.slug || selectedCategory?.slug;
+    const blockCategorySlug = pageCategory?.slug || selectedCategorySlug || selectedCategory?.data?.attributes?.slug || selectedCategory?.slug;
 
     const getAllDescendantSlugs = (cat: any): string[] => {
         let slugs: string[] = [cat.slug];
@@ -143,17 +151,13 @@ export default function ProductGrid({
 
     useEffect(() => {
         const fetchAllData = async () => {
-            // Need data if we are in dynamic mode (all or category) OR if we need filter labels
-            // If mode is category but no category is selected in the block, we use the one from the URL (slug)
-            // NEW: If mode is 'all' but we are on a category page (slug is present and NOT home), 
-            // we treat it as 'category' mode to make blocks placed in dynamic category pages 
-            // "aware" of their context.
             const isHomePage = !slug || slug === 'home';
             const autoDetectedCategory = (mode === 'all' || mode === 'category') && slug && !isHomePage;
 
-            const effectiveSlug = blockCategorySlug || (autoDetectedCategory ? slug : null);
+            // USER FILTER HAS PRIORITY for fetching
+            const effectiveSlug = filters.category || blockCategorySlug || (autoDetectedCategory ? slug : null);
 
-            const needsDynamicProducts = mode === 'all' || mode === 'category' || effectiveSlug;
+            const needsDynamicProducts = mode === 'all' || mode === 'category' || !!effectiveSlug;
             const needsFilterCategories = showFilters && !blockCategoryName;
 
             if (!needsDynamicProducts && !needsFilterCategories) {
@@ -162,31 +166,48 @@ export default function ProductGrid({
 
             setIsLoading(true);
             try {
-                const fetchParams: any = {};
+                const fetchParams: any = {
+                    search: filters.search,
+                    minPrice: filters.minPrice,
+                    maxPrice: filters.maxPrice,
+                    brand: filters.brand
+                };
                 if (effectiveSlug) {
                     const categoryData = await getCategoryBySlug(effectiveSlug as string, lang as string);
-                     if (categoryData) {
-                         const allSlugs = getAllDescendantSlugs(categoryData);
-                         fetchParams.categories = { slug: { $in: allSlugs } };
+                    if (categoryData) {
+                        const allSlugs = getAllDescendantSlugs(categoryData);
+                        fetchParams.category = allSlugs;
 
-                         // Set subcategories for sidebar
-                         const children = categoryData.children?.data || categoryData.children || [];
-                         setSubCategories(children.map((c: any) => c.attributes || c));
-                         
-                         // Save current category for title
-                         setCurrentCategory(categoryData);
+                        // Set subcategories for sidebar
+                        const children = categoryData.children || [];
+                        setSubCategories(children.map((c: any) => c.attributes || c));
+
+                        // Save current category for title
+                        setCurrentCategory(categoryData);
                     } else {
-                        fetchParams.categories = { slug: { $eq: effectiveSlug } };
+                        fetchParams.category = effectiveSlug;
                     }
                 }
 
                 const [productsRes, categoriesRes] = await Promise.all([
                     needsDynamicProducts ? getProducts(1, 100, fetchParams, lang as string) : Promise.resolve({ data: [] }),
-                    needsFilterCategories ? getCategories(lang as string) : Promise.resolve([])
+                    (needsFilterCategories && filterCategoriesMode === 'auto') ? getCategories(lang as string) : Promise.resolve([])
                 ]);
 
                 if (needsDynamicProducts) setFetchedProducts(productsRes.data || []);
-                if (needsFilterCategories) setFetchedCategories(categoriesRes || []);
+
+                if (needsFilterCategories) {
+                    if (filterCategoriesMode === 'manual' && manualFilterCategories.length > 0) {
+                        const categories = await Promise.all(
+                            manualFilterCategories.map((s: string) => getCategoryBySlug(s, lang as string))
+                        );
+                        const validCategories = categories.filter(Boolean);
+                        setFetchedCategories(validCategories);
+                        if (showSidebar) setSubCategories(validCategories);
+                    } else if (filterCategoriesMode === 'auto') {
+                        setFetchedCategories(categoriesRes || []);
+                    }
+                }
             } catch (error) {
                 console.error('Error fetching data for Showcase:', error);
             } finally {
@@ -195,7 +216,20 @@ export default function ProductGrid({
         };
 
         fetchAllData();
-    }, [mode, blockCategorySlug, showFilters, lang, slug]);
+    }, [
+        mode,
+        blockCategorySlug,
+        showFilters,
+        filterCategoriesMode,
+        JSON.stringify(manualFilterCategories),
+        lang,
+        slug,
+        filters.category,
+        filters.search,
+        filters.minPrice,
+        filters.maxPrice,
+        filters.brand
+    ]);
 
     const products = mode === 'manual' ? manualProducts : fetchedProducts;
 
@@ -216,44 +250,21 @@ export default function ProductGrid({
             // Handle categories as relation array (Strapi 5 populated data)
             // Strapi 5 puede devolver categorías como array de objetos o como array de IDs
             let productCategories: string[] = [];
-            
+
             if (pData.categories) {
-                if (Array.isArray(pData.categories)) {
-                    // Podría ser array de objetos de categoría o array de IDs
-                    productCategories = pData.categories.map((c: any) => {
-                        if (typeof c === 'object') {
-                            return c.name || c.attributes?.name || '';
-                        }
-                        return ''; // Si es ID, no tenemos el nombre aquí
-                    }).filter(Boolean);
-                } else if (pData.categories.data && Array.isArray(pData.categories.data)) {
-                    // Formato antiguo de Strapi 4
-                    productCategories = pData.categories.data.map((c: any) => 
-                        c.attributes?.name || c.name || ''
-                    ).filter(Boolean);
-                }
-            }
-            
-            // Si no encontramos nombres, usar slugs como fallback
-            if (productCategories.length === 0 && pData.categories && Array.isArray(pData.categories)) {
-                productCategories = pData.categories.map((c: any) => {
-                    if (typeof c === 'object') {
-                        return c.slug || '';
-                    }
-                    return '';
+                // Support Strapi 4/5 and Prisma data structures
+                const cats = Array.isArray(pData.categories.data) ? pData.categories.data : (Array.isArray(pData.categories) ? pData.categories : []);
+                productCategories = cats.map((c: any) => {
+                    const cData = c.attributes || c;
+                    return (cData.slug || "").toLowerCase();
                 }).filter(Boolean);
             }
 
-            // Comparar slugs en lugar de nombres
-            const matchesCategory = !effectiveCategory || 
-                productCategories.some((catName: string) => 
-                    catName.toLowerCase() === effectiveCategory.toLowerCase() ||
-                    // También intentar match por slug si tenemos acceso a él
-                    (pData.categories && Array.isArray(pData.categories) && 
-                     pData.categories.some((c: any) => 
-                         typeof c === 'object' && c.slug && c.slug.toLowerCase() === effectiveCategory.toLowerCase()
-                     ))
-                );
+            // If not in manual mode, we trust the server-side re-fetch that happened via effectiveSlug
+            // This avoids the shallow hierarchy match issue in the frontend.
+            const matchesCategory = mode === 'manual'
+                ? (!effectiveCategory || productCategories.includes(effectiveCategory.toLowerCase()))
+                : true;
             const matchesSearch = !filters.search ||
                 (pData.name || "").toLowerCase().includes(filters.search.toLowerCase()) ||
                 (pData.brand || "").toLowerCase().includes(filters.search.toLowerCase());
@@ -265,8 +276,8 @@ export default function ProductGrid({
             return matchesCategory && matchesSearch && matchesMinPrice && matchesMaxPrice;
         });
 
-        // Always apply limit if provided, regardless of mode
-        return limit ? filtered.slice(0, limit) : filtered;
+        // Apply limit only if it's > 0
+        return limit && limit > 0 ? filtered.slice(0, limit) : filtered;
     }, [products, effectiveCategory, filters.search, filters.minPrice, filters.maxPrice, limit]);
 
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -279,12 +290,12 @@ export default function ProductGrid({
     return (
         <section className={`py-12 px-4 ${safeLayout === 'carousel' ? 'bg-white' : 'bg-gray-50/50'}`}>
             <div className="container mx-auto">
-                <div className="flex flex-col md:flex-row justify-between items-center mb-10 gap-6">
-                     <h2 className="text-3xl md:text-5xl font-black text-[#003366] uppercase tracking-tighter italic">
-                         {title || blockCategoryName || (mode === 'category' && currentCategory?.name) || 'Productos'}
-                     </h2>
+                <div className="flex flex-col md:flex-row justify-start items-center mb-10 gap-6 md:gap-10">
+                    <h2 className="text-3xl md:text-5xl font-black text-[#003366] uppercase tracking-tighter italic shrink-0">
+                        {title || blockCategoryName || (mode === 'category' && currentCategory?.name) || 'Productos'}
+                    </h2>
 
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-4 flex-wrap">
                         {showSidebar && (
                             <button
                                 onClick={() => setIsSidebarOpen(true)}
@@ -295,33 +306,50 @@ export default function ProductGrid({
                             </button>
                         )}
 
-                        {showFilters && !blockCategoryName && (
-                            <div className="flex items-center gap-2 overflow-x-auto pb-2 w-full md:w-auto no-scrollbar">
-                                <button
-                                    onClick={() => setFilter('category', '')}
-                                    className={`px-5 py-2 rounded-none text-[10px] font-black uppercase tracking-widest transition-all ${!filters.category
-                                        ? 'bg-[#FF6600] text-white shadow-lg'
-                                        : 'bg-white text-[#003366] border border-gray-100 hover:border-[#FF6600]'
-                                        }`}
-                                >
-                                    Todos
-                                </button>
-                                {fetchedCategories.map((cat) => {
-                                    const name = cat.attributes?.name || cat.name;
-                                    const slug = cat.attributes?.slug || cat.slug;
-                                    return (
-                                        <button
-                                            key={cat.id}
-                                            onClick={() => setFilter('category', slug)}
-                                            className={`px-5 py-2 rounded-none text-[10px] font-black uppercase tracking-widest shrink-0 transition-all ${filters.category === slug
-                                                ? 'bg-[#FF6600] text-white shadow-lg'
-                                                : 'bg-white text-[#003366] border border-gray-100 hover:border-[#FF6600]'
-                                                }`}
-                                        >
-                                            {name}
-                                        </button>
-                                    );
-                                })}
+                        {showFilters && enabledFilters.includes('search') && !showSidebar && (
+                            <div className="relative w-full md:w-64">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                                <input
+                                    type="text"
+                                    placeholder="Buscar productos..."
+                                    value={filters.search}
+                                    onChange={(e) => setFilter('search', e.target.value)}
+                                    className="w-full pl-10 pr-4 py-2 bg-white border border-gray-100 text-[#003366] font-bold uppercase text-[10px] tracking-[0.1em] shadow-sm focus:border-[#FF6600] outline-none transition-all placeholder:text-gray-300"
+                                />
+                            </div>
+                        )}
+
+                        {showFilters && enabledFilters.includes('categories') && !blockCategoryName && (
+                            <div className="relative w-full md:w-auto">
+                                <div className="flex items-center gap-2 overflow-x-auto pb-4 -mb-4 w-full md:w-auto no-scrollbar scroll-smooth">
+                                    <button
+                                        onClick={() => setFilter('category', '')}
+                                        className={`px-4 md:px-5 py-2 rounded-none text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all shrink-0 ${!filters.category
+                                            ? 'bg-[#FF6600] text-white shadow-lg'
+                                            : 'bg-white text-[#003366] border border-gray-100 hover:border-[#FF6600]'
+                                            }`}
+                                    >
+                                        Todos
+                                    </button>
+                                    {fetchedCategories.map((cat) => {
+                                        const name = cat.attributes?.name || cat.name;
+                                        const slug = cat.attributes?.slug || cat.slug;
+                                        return (
+                                            <button
+                                                key={cat.id}
+                                                onClick={() => setFilter('category', slug)}
+                                                className={`px-4 md:px-5 py-2 rounded-none text-[9px] md:text-[10px] font-black uppercase tracking-widest shrink-0 transition-all ${filters.category === slug
+                                                    ? 'bg-[#FF6600] text-white shadow-lg'
+                                                    : 'bg-white text-[#003366] border border-gray-100 hover:border-[#FF6600]'
+                                                    }`}
+                                            >
+                                                {name}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                {/* Gradient shadow to indicate scroll */}
+                                <div className="absolute top-0 right-0 h-full w-8 bg-gradient-to-l from-white to-transparent pointer-events-none md:hidden" />
                             </div>
                         )}
                     </div>
@@ -336,6 +364,7 @@ export default function ProductGrid({
                                 categories={subCategories}
                                 currentCategorySlug={slug as string}
                                 lang={lang as string}
+                                enabledFilters={enabledFilters}
                             />
                         </div>
                     )}
@@ -351,6 +380,7 @@ export default function ProductGrid({
                                     currentCategorySlug={slug as string}
                                     lang={lang as string}
                                     onClose={() => setIsSidebarOpen(false)}
+                                    enabledFilters={enabledFilters}
                                 />
                             </div>
                         </div>
@@ -442,13 +472,13 @@ function ProductCard({ product, addItem }: { product: any, addItem: any }) {
             </Link>
 
             {/* Info Section */}
-            <div className="flex flex-col p-4 flex-grow bg-white group-hover:bg-[#F4F7F9]/30 transition-colors">
+            <div className="flex flex-col p-3 md:p-4 flex-grow bg-white group-hover:bg-[#F4F7F9]/30 transition-colors">
                 <div className="flex-grow">
-                    <p className="text-[9px] font-black text-[#0072f5] uppercase tracking-widest mb-1.5">
+                    <p className="text-[8px] md:text-[9px] font-black text-[#0072f5] uppercase tracking-widest mb-1 md:mb-1.5">
                         {attributes.brand || 'Original'}
                     </p>
                     <Link href={`/${lang}/products/${attributes.slug}`} className="block">
-                        <h3 className="text-xs font-black text-[#003366] line-clamp-2 leading-tight uppercase tracking-tight hover:text-[#FF6600] transition-colors mb-2 italic">
+                        <h3 className="text-[10px] md:text-xs font-black text-[#003366] line-clamp-2 leading-tight uppercase tracking-tight hover:text-[#FF6600] transition-colors mb-2 italic">
                             {name}
                         </h3>
                     </Link>
@@ -502,11 +532,11 @@ function ProductCard({ product, addItem }: { product: any, addItem: any }) {
                         return (
                             <div className="flex flex-col gap-0.5">
                                 {hasAnyDiscount && (
-                                    <span className="text-[10px] font-bold text-gray-500 line-through leading-none">
+                                    <span className="text-[9px] md:text-[10px] font-bold text-gray-500 line-through leading-none">
                                         €{maxPrice.toFixed(2)}
                                     </span>
                                 )}
-                                <p className="text-xl font-black text-[#003366] tracking-tighter italic">
+                                <p className="text-lg md:text-xl font-black text-[#003366] tracking-tighter italic">
                                     {variants.length > 1 && <span className="text-[8px] not-italic uppercase text-gray-400 mr-1">Desde</span>}
                                     €{minFinalPrice.toFixed(2)}
                                 </p>

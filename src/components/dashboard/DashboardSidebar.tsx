@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Package, Settings, Database, Bot, X, FileText, ImageIcon, Layers } from 'lucide-react';
+import { LayoutDashboard, Package, Settings, Database, Bot, X, FileText, ImageIcon, Layers, Users } from 'lucide-react';
 import { useDashboard } from '@/context/DashboardContext';
 
 export default function DashboardSidebar() {
@@ -21,6 +21,7 @@ export default function DashboardSidebar() {
             items: [
                 { name: dict.products, href: `/${lang}/dashboard/products`, icon: Package },
                 { name: dict.categories, href: `/${lang}/dashboard/categories`, icon: Layers },
+                { name: 'Clientes', href: `/${lang}/dashboard/customers`, icon: Users },
                 { name: dict.navStock || 'Stock', href: `/${lang}/dashboard/stock`, icon: Database },
             ]
         },

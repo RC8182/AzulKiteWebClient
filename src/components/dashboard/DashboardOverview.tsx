@@ -10,13 +10,15 @@ import {
     ChevronRight,
     Plus,
     AlertTriangle,
-    CheckCircle2
+    CheckCircle2,
+    Users
 } from 'lucide-react';
 
 interface DashboardOverviewProps {
     dict: any;
     lang: string;
     totalProducts: number;
+    totalCustomers?: number;
     aiGeneratedCount: number;
     healthScore: number;
     lowStockCount: number;
@@ -29,6 +31,7 @@ export default function DashboardOverview({
     dict,
     lang,
     totalProducts,
+    totalCustomers,
     aiGeneratedCount,
     healthScore,
     lowStockCount,
@@ -40,8 +43,8 @@ export default function DashboardOverview({
 
     const stats = [
         { label: dict.products, value: totalProducts, icon: Package, color: 'text-blue-600', bg: 'bg-blue-50', gradient: 'from-blue-500 to-blue-600' },
+        { label: 'Clientes', value: totalCustomers || 0, icon: Users, color: 'text-emerald-600', bg: 'bg-emerald-50', gradient: 'from-emerald-500 to-emerald-600' },
         { label: dict.aiGenerated, value: aiGeneratedCount, icon: Sparkles, color: 'text-purple-600', bg: 'bg-purple-50', gradient: 'from-purple-500 to-purple-600' },
-        { label: 'Salud Catálogo', value: `${healthScore}%`, icon: Activity, color: 'text-emerald-600', bg: 'bg-emerald-50', gradient: 'from-emerald-500 to-emerald-600' },
         { label: 'Stock Bajo', value: lowStockCount, icon: AlertTriangle, color: 'text-orange-600', bg: 'bg-orange-50', gradient: 'from-orange-500 to-orange-600' },
     ];
 
@@ -184,9 +187,18 @@ export default function DashboardOverview({
                                         <div className="w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center">
                                             {(product.attributes?.images?.data || product.attributes?.images)?.[0] ? (
                                                 <img
-                                                    src={`${process.env.NEXT_PUBLIC_STRAPI_URL}${(product.attributes.images.data || product.attributes.images)[0].attributes?.url || (product.attributes.images.data || product.attributes.images)[0].url}`}
+                                                    src={(product.attributes.images.data || product.attributes.images)[0].attributes?.url?.startsWith('/uploads/') || (product.attributes.images.data || product.attributes.images)[0].url?.startsWith('/uploads/')
+                                                        ? ((product.attributes.images.data || product.attributes.images)[0].attributes?.url || (product.attributes.images.data || product.attributes.images)[0].url)
+                                                        : `${process.env.NEXT_PUBLIC_STRAPI_URL || ''}${(product.attributes.images.data || product.attributes.images)[0].attributes?.url || (product.attributes.images.data || product.attributes.images)[0].url}`}
                                                     className="w-full h-full object-cover"
                                                     alt={product.attributes?.name}
+                                                    onError={(e: any) => {
+                                                        e.currentTarget.style.display = 'none';
+                                                        const fallback = document.createElement('div');
+                                                        fallback.className = 'w-5 h-5 text-gray-400 flex items-center justify-center';
+                                                        fallback.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-package"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>';
+                                                        e.currentTarget.parentElement?.appendChild(fallback);
+                                                    }}
                                                 />
                                             ) : (
                                                 <Package className="w-5 h-5 text-gray-400" />

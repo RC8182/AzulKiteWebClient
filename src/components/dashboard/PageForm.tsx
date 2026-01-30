@@ -150,8 +150,24 @@ export default function PageForm({ lang, page }: PageFormProps) {
                             value={formData.slug}
                             onChange={handleChange}
                             required
-                            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white mb-2"
                         />
+                        <div className="flex flex-wrap gap-2">
+                            <span className="text-xs text-gray-500 py-1">Sugerencias:</span>
+                            {[
+                                'about', 'contact', 'help', 'privacy', 'terms',
+                                'cookies', 'legal', 'return-policy', 'payment', 'blog'
+                            ].map(s => (
+                                <button
+                                    key={s}
+                                    type="button"
+                                    onClick={() => setFormData(prev => ({ ...prev, slug: s }))}
+                                    className="text-xs bg-gray-100 dark:bg-gray-700 hover:bg-blue-100 dark:hover:bg-blue-900 px-2 py-1 rounded transition-colors"
+                                >
+                                    {s}
+                                </button>
+                            ))}
+                        </div>
                     </div>
                     <div className="flex items-center pt-6">
                         <label className="flex items-center gap-2 cursor-pointer">

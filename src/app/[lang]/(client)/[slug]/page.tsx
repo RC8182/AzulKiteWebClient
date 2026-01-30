@@ -1,5 +1,5 @@
 import { getPageBySlug } from "@/actions/page-actions-prisma";
-import BlockRenderer from "@/components/BlockRenderer";
+import BlockRenderer from "@/components/blocks/BlockRenderer";
 import { notFound } from "next/navigation";
 
 interface GenericPageProps {
@@ -38,9 +38,7 @@ export default async function GenericPage({ params }: GenericPageProps) {
                     </div>
                 </div>
             )}
-            {page.blocks?.map((block: any, index: number) => (
-                <BlockRenderer key={block.id || index} block={block} locale={lang} />
-            ))}
+            <BlockRenderer blocks={page.blocks || []} />
         </main>
     );
 }

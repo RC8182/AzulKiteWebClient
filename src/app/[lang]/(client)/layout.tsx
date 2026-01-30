@@ -3,6 +3,7 @@ import Footer from "@/components/footer/Footer";
 import { getCategories } from "@/actions/category-actions";
 import { getGlobalData } from "@/actions/global-actions";
 import { WindSocketProvider } from "@/components/navbar/wind-context/WindSocketContext";
+import { AuthProvider } from "@/components/providers/SessionProvider";
 
 export default async function ClientLayout({
     children,
@@ -24,10 +25,12 @@ export default async function ClientLayout({
     ]);
 
     return (
-        <WindSocketProvider>
-            <Navbar lang={lang} categories={categories} />
-            {children}
-            <Footer lang={lang} customDescription={globalData?.footerText} />
-        </WindSocketProvider>
+        <AuthProvider>
+            <WindSocketProvider>
+                <Navbar lang={lang} categories={categories} />
+                {children}
+                <Footer lang={lang} customDescription={globalData?.footerText || undefined} />
+            </WindSocketProvider>
+        </AuthProvider>
     );
 }

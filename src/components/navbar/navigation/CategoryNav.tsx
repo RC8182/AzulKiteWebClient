@@ -12,7 +12,7 @@ export default function CategoryNav({ lang, categories = [] }: CategoryNavProps)
     // 1. Identify main categories (those whose parent is named "Shop" or has slug "shop")
     const shopCat = categories.find(c => c.slug === 'shop' || c.slug === 'tienda');
     const rootCategories = shopCat
-        ? categories.filter(c => c.parent?.documentId === shopCat?.documentId)
+        ? categories.filter(c => c.parent?.id === shopCat?.id)
         : categories.filter(c => !c.parent);
 
     const navigation = rootCategories.map(cat => {
@@ -22,7 +22,7 @@ export default function CategoryNav({ lang, categories = [] }: CategoryNavProps)
             name: cat.name,
             href: `/${lang}/${cat.slug}`,
             subcategories: categories
-                .filter(sub => sub.parent?.documentId === cat.documentId)
+                .filter(sub => sub.parent?.id === cat.id)
                 .map(sub => ({
                     name: sub.name,
                     href: `/${lang}/${rootPath}/${sub.slug}`

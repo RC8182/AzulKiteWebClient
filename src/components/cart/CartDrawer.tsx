@@ -2,12 +2,9 @@
 
 import { useCart } from '@/store/useCart';
 import { Trash2, Plus, Minus, ShoppingBag, X } from 'lucide-react';
-import { loadStripe } from '@stripe/stripe-js';
-import { createCheckoutSession } from '@/actions/checkout';
 import { useState, useEffect } from 'react';
 import { dictionary } from '../navbar/db';
-
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '');
+import { useRouter } from 'next/navigation';
 
 interface CartDrawerProps {
     isOpen: boolean;
@@ -18,6 +15,7 @@ interface CartDrawerProps {
 export default function CartDrawer({ isOpen, onClose, lang }: CartDrawerProps) {
     const { items, removeItem, updateQuantity, getTotalPrice, getTotalItems } = useCart();
     const [isLoading, setIsLoading] = useState(false);
+    const router = useRouter();
 
     const t = dictionary[lang as keyof typeof dictionary]?.cartDrawer || dictionary['es'].cartDrawer;
 
@@ -31,32 +29,9 @@ export default function CartDrawer({ isOpen, onClose, lang }: CartDrawerProps) {
         return () => { document.body.style.overflow = 'unset'; };
     }, [isOpen]);
 
-    const handleCheckout = async () => {
-        setIsLoading(true);
-        try {
-            const { sessionId, error } = await createCheckoutSession({
-                customer_email: 'test@example.com',
-                products: items.map(item => ({
-                    id: item.id,
-                    quantity: item.quantity,
-                    color: item.variant?.color,
-                    size: item.variant?.size
-                })),
-            });
-
-            if (error) throw new Error(error);
-            if (!sessionId) throw new Error('No session ID returned');
-
-            const stripe = await stripePromise;
-            if (!stripe) throw new Error('Stripe failed to load');
-
-            // Redirect to Stripe Checkout
-            window.location.href = `https://checkout.stripe.com/pay/${sessionId}`;
-        } catch (err: any) {
-            alert(err.message || 'Error al procesar el pago');
-        } finally {
-            setIsLoading(false);
-        }
+    const handleCheckout = () => {
+        onClose();
+        router.push(`/${lang}/checkout`);
     };
 
     if (!isOpen) return null;
