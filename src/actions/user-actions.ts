@@ -22,20 +22,43 @@ export async function updateUserProfile(data: {
     locationName?: string;
     latitude?: number;
     longitude?: number;
+    firstName?: string;
+    lastName?: string;
+    addressLine1?: string;
+    addressLine2?: string;
+    city?: string;
+    postalCode?: string;
+    country?: string;
+    phone?: string;
 }) {
     const session = await auth();
     if (!session?.user?.id) throw new Error('Unauthorized');
+
+    // Filter out any undefined or extra fields
+    const updateData: any = {};
+    const allowedFields = [
+        'weight', 'height', 'age', 'skillLevel', 'locationName',
+        'latitude', 'longitude', 'firstName', 'lastName',
+        'addressLine1', 'addressLine2', 'city', 'postalCode',
+        'country', 'phone'
+    ];
+
+    for (const field of allowedFields) {
+        if ((data as any)[field] !== undefined) {
+            updateData[field] = (data as any)[field];
+        }
+    }
 
     const profile = await prisma.userProfile.upsert({
         where: { userId: session.user.id },
         create: {
             userId: session.user.id,
-            ...data,
+            ...updateData,
         },
-        update: data,
+        update: updateData,
     });
 
-    revalidatePath('/[lang]/account');
+    revalidatePath('/', 'layout');
     return profile;
 }
 

@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 
 export interface CartItem {
     id: string | number;
+    productId?: string;
     name: string;
     price: number;
     image: string;
@@ -42,23 +43,21 @@ export const useCart = create<CartStore>()(
                 };
 
                 const newItemKey = getItemKey(newItem);
-                const existingItem = currentItems.find((item) => getItemKey(item) === newItemKey);
+                const existingItem = currentItems.find((item) => item.id === newItemKey);
 
                 if (existingItem) {
                     set({
                         items: currentItems.map((item) =>
-                            getItemKey(item) === newItemKey
+                            item.id === newItemKey
                                 ? { ...item, quantity: item.quantity + quantity }
                                 : item
                         ),
                     });
                 } else {
-                    set({ items: [...currentItems, { ...newItem, quantity }] });
+                    set({ items: [...currentItems, { ...newItem, id: newItemKey, productId: String(newItem.id), quantity }] });
                 }
             },
             removeItem: (id) => {
-                // If id is a string containing variant info, we might need a better matching
-                // But generally, the 'id' passed here should be the one from the item in the state
                 set({ items: get().items.filter((item) => item.id !== id) });
             },
             updateQuantity: (id, quantity) => {

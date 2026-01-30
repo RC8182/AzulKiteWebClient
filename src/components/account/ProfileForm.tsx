@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { updateUserProfile } from '@/actions/user-actions';
-import { Save, Loader2, User, MapPin } from 'lucide-react';
+import { Save, Loader2, User, MapPin, Truck } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 interface ProfilePageProps {
@@ -19,6 +19,13 @@ export default function ProfileForm({ user, profile }: ProfilePageProps) {
         age: profile?.age || '',
         skillLevel: profile?.skillLevel || 'beginner',
         locationName: profile?.locationName || '',
+        firstName: profile?.firstName || '',
+        lastName: profile?.lastName || '',
+        addressLine1: profile?.addressLine1 || '',
+        city: profile?.city || '',
+        postalCode: profile?.postalCode || '',
+        country: profile?.country || 'ES',
+        phone: profile?.phone || '',
     });
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -32,13 +39,15 @@ export default function ProfileForm({ user, profile }: ProfilePageProps) {
             try {
                 await updateUserProfile({
                     ...formData,
-                    weight: formData.weight ? parseFloat(formData.weight) : undefined,
-                    height: formData.height ? parseFloat(formData.height) : undefined,
-                    age: formData.age ? parseInt(formData.age) : undefined,
+                    weight: formData.weight ? parseFloat(formData.weight as string) : undefined,
+                    height: formData.height ? parseFloat(formData.height as string) : undefined,
+                    age: formData.age ? parseInt(formData.age as string) : undefined,
                 });
+                alert('Perfil actualizado con éxito. Ahora tus datos aparecerán autocompletados al finalizar compra.');
                 router.refresh();
             } catch (error) {
                 console.error('Failed to update profile', error);
+                alert('Error al actualizar el perfil');
             }
         });
     };
@@ -109,6 +118,49 @@ export default function ProfileForm({ user, profile }: ProfilePageProps) {
                             <option value="advanced">Avanzado</option>
                             <option value="expert">Experto</option>
                         </select>
+                    </div>
+                </div>
+            </div>
+
+            <div className="bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
+                <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
+                    <Truck className="text-blue-600" />
+                    Datos de Envío
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Nombre</label>
+                        <input type="text" name="firstName" value={formData.firstName} onChange={handleChange} className="w-full px-4 py-2 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-transparent focus:ring-2 focus:ring-blue-500 outline-none" />
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Apellidos</label>
+                        <input type="text" name="lastName" value={formData.lastName} onChange={handleChange} className="w-full px-4 py-2 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-transparent focus:ring-2 focus:ring-blue-500 outline-none" />
+                    </div>
+                    <div className="md:col-span-2 space-y-2">
+                        <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Dirección</label>
+                        <input type="text" name="addressLine1" value={formData.addressLine1} onChange={handleChange} className="w-full px-4 py-2 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-transparent focus:ring-2 focus:ring-blue-500 outline-none" />
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Ciudad</label>
+                        <input type="text" name="city" value={formData.city} onChange={handleChange} className="w-full px-4 py-2 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-transparent focus:ring-2 focus:ring-blue-500 outline-none" />
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Código Postal</label>
+                        <input type="text" name="postalCode" value={formData.postalCode} onChange={handleChange} className="w-full px-4 py-2 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-transparent focus:ring-2 focus:ring-blue-500 outline-none" />
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">País</label>
+                        <select name="country" value={formData.country} onChange={handleChange} className="w-full px-4 py-2 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-transparent focus:ring-2 focus:ring-blue-500 outline-none">
+                            <option value="ES">España</option>
+                            <option value="PT">Portugal</option>
+                            <option value="FR">Francia</option>
+                            <option value="IT">Italia</option>
+                            <option value="DE">Alemania</option>
+                        </select>
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Teléfono</label>
+                        <input type="tel" name="phone" value={formData.phone} onChange={handleChange} className="w-full px-4 py-2 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-transparent focus:ring-2 focus:ring-blue-500 outline-none" />
                     </div>
                 </div>
             </div>

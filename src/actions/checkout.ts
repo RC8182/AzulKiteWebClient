@@ -2,6 +2,7 @@
 
 import { prisma } from '@/lib/prisma';
 import { generatePaymentData } from '@/lib/addon-payments';
+import { auth } from '@/lib/auth';
 
 export async function createCheckoutSession(data: {
     customer_email: string;
@@ -14,10 +15,11 @@ export async function createCheckoutSession(data: {
         country: string;
         phone: string;
     };
+    payment_method?: 'bank' | 'paypal' | 'card';
     products: {
         id: string; // Product ID
         quantity: number;
-        price: number; // Unit price from Cart (Trusting client for now, TODO: Verify with DB Variants)
+        price: number; // Unit price from Cart
         name: string;
         image?: string;
         color?: string | null;
@@ -25,21 +27,25 @@ export async function createCheckoutSession(data: {
     }[];
 }) {
     try {
-        // Calculate total
-        const total = data.products.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+        const session = await auth();
+        const shippingCost = 14;
+        const subtotal = data.products.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+        const total = subtotal + shippingCost;
 
-        // Generate a short readable Order Number (random 6 chars for now)
         const orderNumber = Math.random().toString(36).substring(2, 8).toUpperCase();
+        const customerEmail = data.customer_email;
+        const paymentMethod = data.payment_method || 'card';
 
         // Create Order in DB
         const order = await prisma.order.create({
             data: {
                 id: crypto.randomUUID(),
                 orderNumber,
-                customerEmail: data.customer_email,
+                customerEmail,
+                userId: session?.user?.id,
                 total,
                 status: 'PENDING',
-                paymentProvider: 'addon',
+                paymentProvider: paymentMethod === 'card' ? 'addon' : paymentMethod,
                 items: {
                     create: data.products.map(item => ({
                         productId: item.id !== 'undefined' ? String(item.id) : undefined,
@@ -68,15 +74,27 @@ export async function createCheckoutSession(data: {
             }
         });
 
-        // Generate Addon Payments Data
-        const paymentData = generatePaymentData({
-            amount: Math.round(total * 100).toString(), // Convert to cents
-            orderId: orderNumber, // Addon expects alphanumeric (check lengths, usually 4-12 chars)
-            urlOK: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/checkout/success?order=${orderNumber}`,
-            urlKO: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/checkout?error=payment_failed`,
-        });
+        if (paymentMethod === 'card') {
+            const paymentData = generatePaymentData({
+                amount: total.toFixed(2),
+                orderId: orderNumber,
+                urlOK: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/checkout/success?order=${orderNumber}`,
+                urlKO: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/checkout?error=payment_failed`,
+                customerEmail,
+                billingAddress: {
+                    street: data.shipping_address.addressLine1,
+                    city: data.shipping_address.city,
+                    postalCode: data.shipping_address.postalCode,
+                    country: data.shipping_address.country,
+                },
+                customerPhone: data.shipping_address.phone,
+                customerName: `${data.shipping_address.firstName} ${data.shipping_address.lastName}`,
+            });
 
-        return { success: true, paymentData };
+            return { success: true, paymentData, orderNumber };
+        }
+
+        return { success: true, orderNumber };
 
     } catch (error: any) {
         console.error('Checkout Error:', error);

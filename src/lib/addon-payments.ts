@@ -1,92 +1,164 @@
 import crypto from 'crypto';
 
 interface AddonConfig {
-    merchantCode: string;
-    terminal: string;
-    secretKey: string; // La clave SHA-256 proporcionada por el banco
-    currency: string; // '978' para EUR
-    url: string; // URL de notificación (webhook)
+    merchantId: string;
+    terminalId: string; // Addon Payments uses Terminal ID
+    account: string;    // Sometimes used instead of Terminal ID
+    sharedSecret: string;
+    currency: string;
+    url: string;
 }
 
-// Configuración por defecto o desde variables de entorno
 const config: AddonConfig = {
-    merchantCode: process.env.ADDON_MERCHANT_CODE || '',
-    terminal: process.env.ADDON_TERMINAL || '001',
-    secretKey: process.env.ADDON_SECRET_KEY || '',
-    currency: process.env.ADDON_CURRENCY || '978', // EUR
-    url: process.env.ADDON_NOTIFY_URL || '',
+    merchantId: process.env.ADDON_MERCHANT_ID || '',
+    terminalId: process.env.ADDON_TERMINAL_ID || '00000001', // Default terminal
+    account: process.env.ADDON_ACCOUNT || 'internet',
+    sharedSecret: process.env.ADDON_SHARED_SECRET || '',
+    currency: 'EUR', // Updated to 'EUR' (Alpha-3) as required by Gateway
+    // Standard HPP Redirect Endpoint (Direct POST)
+    // Sandbox: https://hpp.sandbox.addonpayments.com/pay
+    // Live: https://hpp.addonpayments.com/pay
+    url: process.env.ADDON_HPP_URL || (process.env.NODE_ENV === 'production'
+        ? 'https://hpp.addonpayments.com/pay'
+        : 'https://hpp.sandbox.addonpayments.com/pay'),
 };
 
 export interface PaymentParams {
-    amount: string; // En céntimos (ej: 10.50 => "1050")
-    orderId: string; // Máximo 12 caracteres, alfanumérico
+    amount: string; // Float format (e.g. "10.00")
+    orderId: string;
     urlOK: string;
     urlKO: string;
+    customerEmail: string;
+    billingAddress: {
+        street: string;
+        city: string;
+        postalCode: string;
+        country: string;
+    };
+    customerPhone?: string;
+    customerName?: string;
 }
 
+/**
+ * Generates payment data using Addon Payments (Standard HPP Redirect)
+ */
 export function generatePaymentData(params: PaymentParams) {
-    const merchantParameters = {
-        DS_MERCHANT_AMOUNT: params.amount,
-        DS_MERCHANT_ORDER: params.orderId,
-        DS_MERCHANT_MERCHANTCODE: config.merchantCode,
-        DS_MERCHANT_CURRENCY: config.currency,
-        DS_MERCHANT_TRANSACTIONTYPE: '0', // Autorización
-        DS_MERCHANT_TERMINAL: config.terminal,
-        DS_MERCHANT_MERCHANTURL: config.url,
-        DS_MERCHANT_URLOK: params.urlOK,
-        DS_MERCHANT_URLKO: params.urlKO,
+    const timestamp = new Date().toISOString().replace(/[-:T.Z]/g, '').substring(0, 14);
+
+    // Amount must be in the smallest currency unit (cents) for Addon Payments
+    // e.g. "864.00" -> "86400"
+    const amountInCents = Math.round(parseFloat(params.amount) * 100).toString();
+
+    // Build the string to hash:
+    // TIMESTAMP.MERCHANT_ID.ORDER_ID.AMOUNT.CURRENCY
+    const stringToHash = `${timestamp}.${config.merchantId}.${params.orderId}.${amountInCents}.${config.currency}`;
+
+    // SHA256 Nested Hash
+    const sha256_hash1 = crypto.createHash('sha256').update(stringToHash).digest('hex');
+    const finalSha256Hash = crypto.createHash('sha256').update(`${sha256_hash1}.${config.sharedSecret}`).digest('hex');
+
+    // SHA1 Nested Hash (for backward compatibility if needed)
+    const sha1_hash1 = crypto.createHash('sha1').update(stringToHash).digest('hex');
+    const finalSha1Hash = crypto.createHash('sha1').update(`${sha1_hash1}.${config.sharedSecret}`).digest('hex');
+
+    const fields = {
+        MERCHANT_ID: config.merchantId,
+        ACCOUNT: config.account,
+        ORDER_ID: params.orderId,
+        AMOUNT: amountInCents,
+        CURRENCY: config.currency,
+        TIMESTAMP: timestamp,
+        SHA256HASH: finalSha256Hash,
+        SHA1HASH: finalSha1Hash,
+        AUTO_SETTLE_FLAG: '1',
+        HPP_VERSION: '2',
+        HPP_LANG: 'ES',
+        MERCHANT_RESPONSE_URL: params.urlOK, // Redirect back to this URL
+        HPP_CUSTOMER_EMAIL: params.customerEmail,
+        HPP_CUSTOMER_PHONENUMBER_MOBILE: params.customerPhone || '',
+        HPP_BILLING_STREET1: sanitizeField(params.billingAddress.street),
+        HPP_BILLING_CITY: sanitizeField(params.billingAddress.city),
+        HPP_BILLING_POSTALCODE: params.billingAddress.postalCode,
+        // Error 508 fix: Addon Payments often requires ISO 3166-1 numeric (724) or Alpha-2 (ES). 
+        // We use '724' for Spain as it passed validation previously for Billing.
+        HPP_BILLING_COUNTRY: params.billingAddress.country === 'ES' || params.billingAddress.country === 'ESP' ? '724' : params.billingAddress.country,
+
+        // --- PAYPAL / SHIPPING FIELDS (Seller Protection) ---
+        SHIPPING_ADDRESS_ENABLE: '1',
+        ADDRESS_OVERRIDE: '1',
+        // Map Shipping Address (Reusing Billing Address as we only collect one)
+        HPP_NAME: sanitizeField(params.customerName || 'Customer'),
+        HPP_STREET: sanitizeField(params.billingAddress.street) || 'Street', // Fallback to avoid empty
+        HPP_CITY: sanitizeField(params.billingAddress.city) || 'City',
+        HPP_ZIP: params.billingAddress.postalCode,
+        HPP_STATE: sanitizeField(params.billingAddress.city), // Default State to City if unknown
+        // HPP_COUNTRY for Shipping is documented as Alpha-2 (A-Z, 2 chars)
+        HPP_COUNTRY: params.billingAddress.country === 'ES' || params.billingAddress.country === '724' ? 'ES' : params.billingAddress.country.substring(0, 2).toUpperCase(),
+        HPP_PHONE: params.customerPhone || '',
+
+        COMMENT1: `Pedido ${params.orderId}`,
+        COMMENT2: 'Azul Kite - Next.js App',
     };
 
-    // 1. Convertir objeto a JSON string
-    const jsonParams = JSON.stringify(merchantParameters);
-
-    // 2. Codificar en Base64
-    const base64Params = Buffer.from(jsonParams).toString('base64');
-
-    // 3. Generar Clave de Operación (3DES con la clave secreta y el número de pedido)
-    const keyBuffer = Buffer.from(config.secretKey, 'base64');
-    const iv = Buffer.alloc(8, 0); // IV de ceros para 3DES
-    const cipher = crypto.createCipheriv('des-ede3-cbc', keyBuffer, iv);
-    cipher.setAutoPadding(false); // Padding manual si fuera necesario, pero Redsys usa ZeroPadding implícito o específico
-
-    // El OrderId debe ser múltiplo de 8 para 3DES. Si no, padding con \0
-    // Redsys espera el OrderId tal cual para derivar la clave.
-    // IMPORTANTE: La implementación oficial de Redsys en node suele usar librerías específicas.
-    // Vamos a usar una implementación estándar de la firma HMAC-SHA256 V256
-
-    const signature = createSignature(config.secretKey, params.orderId, base64Params);
+    if (process.env.NODE_ENV === 'development') {
+        console.log('[Addon Payments] Redirect Integration Debug:', {
+            url: config.url,
+            hash: finalSha256Hash,
+            fields
+        });
+    }
 
     return {
-        url: 'https://sis.redsys.es/sis/realizarPago', // URL Producción (verificar si es test o prod)
-        // Para pruebas: 'https://sis-t.redsys.es:25443/sis/realizarPago'
-        params: base64Params,
-        signature: signature,
-        version: 'HMAC_SHA256_V1',
+        url: config.url,
+        fields
     };
 }
 
-function createSignature(secretKey: string, orderId: string, base64Params: string): string {
-    // 1. Decodificar la clave Base64
-    const key = Buffer.from(secretKey, 'base64');
+/**
+ * Sanitizes fields to ensure they contain only allowed characters for Addon Payments.
+ * Allowed: a-z A-Z 0-9 ' " , + . _ - & / @ ! ? % ( ) * : £ $ & € # [ ] | =
+ * Removes characters like 'º' which cause Error 508.
+ */
+function sanitizeField(value: string): string {
+    if (!value) return '';
+    // Remove 'º', 'ª' and other common non-standard chars, replace with simple equivalents or strip
+    return value
+        .replace(/[ºª]/g, '')
+        .replace(/[^a-zA-Z0-9'" ,+\._\-&/@!?%\(\)*:£\$&€#\[\]\|=]/g, ' ') // Keep only allowed chars
+        .trim();
+}
 
-    // 2. Generar clave específica para la operación (3DES) usando el OrderId
-    const iv = Buffer.alloc(8, 0);
-    const cipher = crypto.createCipheriv('des-ede3-cbc', key, iv);
-    cipher.setAutoPadding(false); // Importante: Redsys usa ZeroPadding manual si es necesario
+/**
+ * Verifies the signature of a response from Addon Payments
+ */
+export function verifyAddonSignature(fields: Record<string, string>): boolean {
+    const {
+        TIMESTAMP,
+        MERCHANT_ID,
+        ORDER_ID,
+        RESULT,
+        MESSAGE,
+        PASREF,
+        AUTHCODE,
+        SHA1HASH,
+        SHA256HASH
+    } = fields;
 
-    // Padding del OrderId a múltiplo de 8 bytes con \0
-    const orderIdBuffer = Buffer.from(orderId);
-    const padding = 8 - (orderIdBuffer.length % 8);
-    const paddedOrderId = padding < 8 ? Buffer.concat([orderIdBuffer, Buffer.alloc(padding, 0)]) : orderIdBuffer;
+    // Sequence for verification hash:
+    // TIMESTAMP.MERCHANT_ID.ORDER_ID.RESULT.MESSAGE.PASREF.AUTHCODE
+    const stringToHash = `${TIMESTAMP}.${MERCHANT_ID}.${ORDER_ID}.${RESULT}.${MESSAGE}.${PASREF}.${AUTHCODE}`;
 
-    let encryptedOrderKey = cipher.update(paddedOrderId);
-    encryptedOrderKey = Buffer.concat([encryptedOrderKey, cipher.final()]);
+    if (SHA256HASH) {
+        const hash1 = crypto.createHash('sha256').update(stringToHash).digest('hex');
+        const calculatedHash = crypto.createHash('sha256').update(`${hash1}.${config.sharedSecret}`).digest('hex');
+        return calculatedHash === SHA256HASH;
+    }
 
-    // 3. HMAC-SHA256 de los parámetros Base64 usando la clave encriptada
-    const hmac = crypto.createHmac('sha256', encryptedOrderKey);
-    hmac.update(base64Params);
-    const hash = hmac.digest();
+    if (SHA1HASH) {
+        const hash1 = crypto.createHash('sha1').update(stringToHash).digest('hex');
+        const calculatedHash = crypto.createHash('sha1').update(`${hash1}.${config.sharedSecret}`).digest('hex');
+        return calculatedHash === SHA1HASH;
+    }
 
-    // 4. Codificar resultado en Base64
-    return hash.toString('base64');
+    return false;
 }

@@ -3,7 +3,8 @@
 import { useCart } from '@/store/useCart';
 import { ShoppingBag, ChevronRight, Trash2, Plus, Minus, CreditCard, ShieldCheck, Truck } from 'lucide-react';
 import { createCheckoutSession } from '@/actions/checkout';
-import { useState, use } from 'react';
+import { getUserProfile } from '@/actions/user-actions';
+import { useState, use, useEffect } from 'react';
 import Link from 'next/link';
 import { getDictionary } from './db';
 import AddonPaymentForm from '@/components/checkout/AddonPaymentForm';
@@ -18,7 +19,7 @@ export default function CheckoutPage({ params }: CheckoutPageProps) {
     const { lang } = use(params);
     const { items, removeItem, updateQuantity, getTotalPrice, getTotalItems } = useCart();
     const [isLoading, setIsLoading] = useState(false);
-    const [paymentData, setPaymentData] = useState<{ url: string; params: string; signature: string; version: string } | null>(null);
+    const [paymentData, setPaymentData] = useState<{ url: string; fields: Record<string, string> } | null>(null);
     const dict = getDictionary(lang);
 
     // Form State
@@ -32,6 +33,33 @@ export default function CheckoutPage({ params }: CheckoutPageProps) {
         country: 'ES',
         phone: ''
     });
+
+    const [paymentMethod, setPaymentMethod] = useState<'bank' | 'paypal' | 'card'>('card');
+    const shippingCost = 14; // Matching the image
+
+    // Auto-fill from Profile
+    useEffect(() => {
+        const fetchProfile = async () => {
+            try {
+                const profile = await getUserProfile();
+                if (profile) {
+                    setFormData({
+                        email: profile.user.email || '',
+                        firstName: profile.firstName || '',
+                        lastName: profile.lastName || '',
+                        address: profile.addressLine1 || '',
+                        city: profile.city || '',
+                        postalCode: profile.postalCode || '',
+                        country: profile.country || 'ES',
+                        phone: profile.phone || ''
+                    });
+                }
+            } catch (error) {
+                console.error('[Checkout] Failed to fetch profile:', error);
+            }
+        };
+        fetchProfile();
+    }, []);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -52,8 +80,9 @@ export default function CheckoutPage({ params }: CheckoutPageProps) {
                     country: formData.country,
                     phone: formData.phone
                 },
+                payment_method: paymentMethod,
                 products: items.map(item => ({
-                    id: String(item.id),
+                    id: String(item.productId || item.id),
                     quantity: item.quantity,
                     price: item.price,
                     name: item.name,
@@ -64,10 +93,13 @@ export default function CheckoutPage({ params }: CheckoutPageProps) {
             });
 
             if (result.error) throw new Error(result.error);
-            if (!result.paymentData) throw new Error('No payment data returned');
 
-            setPaymentData(result.paymentData);
-            // Form inside AddonPaymentForm will auto-submit
+            if (paymentMethod === 'card') {
+                if (!result.paymentData) throw new Error('No payment data returned');
+                setPaymentData(result.paymentData);
+            } else {
+                window.location.href = `/${lang}/checkout/success?order=${result.orderNumber}&method=${paymentMethod}`;
+            }
         } catch (err: any) {
             alert(err.message || 'Error processing payment');
             setIsLoading(false);
@@ -104,7 +136,7 @@ export default function CheckoutPage({ params }: CheckoutPageProps) {
                     <nav className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-4">
                         <Link href={`/${lang}`} className="hover:text-[#0051B5] transition-colors">Azul Kite</Link>
                         <ChevronRight size={10} />
-                        <span className="text-[#0051B5]">{dict.checkout}</span>
+                        <span className="text-[#0051B5] uppercase">{dict.checkout}</span>
                     </nav>
                     <h1 className="text-4xl md:text-5xl font-black text-[#003366] uppercase tracking-tighter italic">
                         {dict.title}
@@ -113,170 +145,209 @@ export default function CheckoutPage({ params }: CheckoutPageProps) {
             </div>
 
             <div className="container mx-auto px-4">
-                <div className="flex flex-col lg:flex-row gap-12">
-                    {/* Left Column: Form & Items */}
-                    <div className="flex-grow space-y-8">
+                <div className="max-w-4xl mx-auto space-y-8">
+                    {/* Shipping Form */}
+                    <div className="bg-white p-8 shadow-sm border border-gray-100">
+                        <h2 className="text-xs font-black uppercase tracking-[0.2em] text-[#0051B5] mb-8 flex items-center gap-2">
+                            <ShieldCheck size={14} />
+                            {dict.shipping_form}
+                        </h2>
+                        <form id="checkout-form" onSubmit={handleCheckout} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="md:col-span-2">
+                                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Email</label>
+                                <input required type="email" name="email" value={formData.email} onChange={handleInputChange} className="w-full bg-gray-50 border border-gray-200 p-3 rounded-lg text-sm font-medium focus:outline-none focus:border-[#0051B5] transition-colors" placeholder="tu@email.com" />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Nombre</label>
+                                <input required type="text" name="firstName" value={formData.firstName} onChange={handleInputChange} className="w-full bg-gray-50 border border-gray-200 p-3 rounded-lg text-sm font-medium focus:outline-none focus:border-[#0051B5] transition-colors" />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Apellidos</label>
+                                <input required type="text" name="lastName" value={formData.lastName} onChange={handleInputChange} className="w-full bg-gray-50 border border-gray-200 p-3 rounded-lg text-sm font-medium focus:outline-none focus:border-[#0051B5] transition-colors" />
+                            </div>
+                            <div className="md:col-span-2">
+                                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Dirección</label>
+                                <input required type="text" name="address" value={formData.address} onChange={handleInputChange} className="w-full bg-gray-50 border border-gray-200 p-3 rounded-lg text-sm font-medium focus:outline-none focus:border-[#0051B5] transition-colors" />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Ciudad</label>
+                                <input required type="text" name="city" value={formData.city} onChange={handleInputChange} className="w-full bg-gray-50 border border-gray-200 p-3 rounded-lg text-sm font-medium focus:outline-none focus:border-[#0051B5] transition-colors" />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Código Postal</label>
+                                <input required type="text" name="postalCode" value={formData.postalCode} onChange={handleInputChange} className="w-full bg-gray-50 border border-gray-200 p-3 rounded-lg text-sm font-medium focus:outline-none focus:border-[#0051B5] transition-colors" />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">País</label>
+                                <select name="country" value={formData.country} onChange={handleInputChange} className="w-full bg-gray-50 border border-gray-200 p-3 rounded-lg text-sm font-medium focus:outline-none focus:border-[#0051B5] transition-colors">
+                                    <option value="ES">España</option>
+                                    <option value="PT">Portugal</option>
+                                    <option value="FR">Francia</option>
+                                    <option value="IT">Italia</option>
+                                    <option value="DE">Alemania</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Teléfono</label>
+                                <input required type="tel" name="phone" value={formData.phone} onChange={handleInputChange} className="w-full bg-gray-50 border border-gray-200 p-3 rounded-lg text-sm font-medium focus:outline-none focus:border-[#0051B5] transition-colors" />
+                            </div>
+                        </form>
+                    </div>
 
-                        {/* Shipping Form */}
-                        <div className="bg-white p-8 shadow-sm border border-gray-100">
-                            <h2 className="text-xs font-black uppercase tracking-[0.2em] text-[#0051B5] mb-8 flex items-center gap-2">
-                                <ShieldCheck size={14} />
-                                {dict.checkout} {/* Assuming 'Checkout' or 'Shipping' */}
-                            </h2>
-                            <form id="checkout-form" onSubmit={handleCheckout} className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="md:col-span-2">
-                                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Email</label>
-                                    <input required type="email" name="email" value={formData.email} onChange={handleInputChange} className="w-full bg-gray-50 border border-gray-200 p-3 rounded-lg text-sm font-medium focus:outline-none focus:border-[#0051B5] transition-colors" placeholder="tu@email.com" />
-                                </div>
-                                <div>
-                                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Nombre</label>
-                                    <input required type="text" name="firstName" value={formData.firstName} onChange={handleInputChange} className="w-full bg-gray-50 border border-gray-200 p-3 rounded-lg text-sm font-medium focus:outline-none focus:border-[#0051B5] transition-colors" />
-                                </div>
-                                <div>
-                                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Apellidos</label>
-                                    <input required type="text" name="lastName" value={formData.lastName} onChange={handleInputChange} className="w-full bg-gray-50 border border-gray-200 p-3 rounded-lg text-sm font-medium focus:outline-none focus:border-[#0051B5] transition-colors" />
-                                </div>
-                                <div className="md:col-span-2">
-                                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Dirección</label>
-                                    <input required type="text" name="address" value={formData.address} onChange={handleInputChange} className="w-full bg-gray-50 border border-gray-200 p-3 rounded-lg text-sm font-medium focus:outline-none focus:border-[#0051B5] transition-colors" />
-                                </div>
-                                <div>
-                                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Ciudad</label>
-                                    <input required type="text" name="city" value={formData.city} onChange={handleInputChange} className="w-full bg-gray-50 border border-gray-200 p-3 rounded-lg text-sm font-medium focus:outline-none focus:border-[#0051B5] transition-colors" />
-                                </div>
-                                <div>
-                                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Código Postal</label>
-                                    <input required type="text" name="postalCode" value={formData.postalCode} onChange={handleInputChange} className="w-full bg-gray-50 border border-gray-200 p-3 rounded-lg text-sm font-medium focus:outline-none focus:border-[#0051B5] transition-colors" />
-                                </div>
-                                <div>
-                                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">País</label>
-                                    <select name="country" value={formData.country} onChange={handleInputChange} className="w-full bg-gray-50 border border-gray-200 p-3 rounded-lg text-sm font-medium focus:outline-none focus:border-[#0051B5] transition-colors">
-                                        <option value="ES">España</option>
-                                        <option value="PT">Portugal</option>
-                                        <option value="FR">Francia</option>
-                                        <option value="IT">Italia</option>
-                                        <option value="DE">Alemania</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Teléfono</label>
-                                    <input required type="tel" name="phone" value={formData.phone} onChange={handleInputChange} className="w-full bg-gray-50 border border-gray-200 p-3 rounded-lg text-sm font-medium focus:outline-none focus:border-[#0051B5] transition-colors" />
-                                </div>
-                            </form>
-                        </div>
-
-                        {/* Items List */}
-                        <div className="bg-white p-8 shadow-sm border border-gray-100">
-                            <h2 className="text-xs font-black uppercase tracking-[0.2em] text-[#0051B5] mb-8 flex items-center gap-2">
-                                <ShoppingBag size={14} />
-                                {dict.summary} ({getTotalItems()})
-                            </h2>
-                            <div className="divide-y divide-gray-100">
-                                {items.map((item) => (
-                                    <div key={item.id} className="py-6 flex gap-6">
-                                        <div className="w-24 h-24 bg-gray-50 border border-gray-100 p-2 shrink-0">
-                                            <img src={item.image} alt={item.name} className="w-full h-full object-contain" />
-                                        </div>
-                                        <div className="flex-grow flex flex-col justify-between">
-                                            <div className="flex justify-between items-start">
-                                                <div>
-                                                    <h3 className="font-black text-[11px] uppercase tracking-wider text-[#003366] mb-1">{item.name}</h3>
-                                                    <p className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">{item.category}</p>
+                    {/* Tu Pedido Table */}
+                    <div className="bg-white p-8 shadow-sm border border-gray-100">
+                        <h2 className="text-2xl font-bold text-[#003366] mb-8 italic">
+                            {dict.summary}
+                        </h2>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm border-collapse">
+                                <thead>
+                                    <tr className="border-b border-gray-100 text-[10px] font-black uppercase tracking-widest text-gray-400">
+                                        <th className="py-4 text-left">{dict.product}</th>
+                                        <th className="py-4 text-right">{dict.subtotal}</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-50">
+                                    {items.map((item) => (
+                                        <tr key={item.id}>
+                                            <td className="py-6">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="w-12 h-12 bg-gray-50 p-1 shrink-0">
+                                                        <img src={item.image} alt={item.name} className="w-full h-full object-contain" />
+                                                    </div>
+                                                    <div>
+                                                        <span className="font-bold text-[#003366]">{item.name}</span>
+                                                        <span className="text-gray-400 mx-2 font-black">× {item.quantity}</span>
+                                                    </div>
                                                 </div>
-                                                <button
-                                                    onClick={() => removeItem(item.id)}
-                                                    className="text-gray-300 hover:text-red-500 transition-colors"
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
-                                            </div>
-                                            <div className="flex justify-between items-end mt-4">
-                                                <div className="flex items-center border border-gray-100 bg-white">
-                                                    <button
-                                                        onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                                                        className="p-2 text-gray-400 hover:text-[#0051B5]"
-                                                    >
-                                                        <Minus size={12} />
-                                                    </button>
-                                                    <span className="w-10 text-center font-bold text-xs text-[#003366]">{item.quantity}</span>
-                                                    <button
-                                                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                                                        className="p-2 text-gray-400 hover:text-[#0051B5]"
-                                                    >
-                                                        <Plus size={12} />
-                                                    </button>
-                                                </div>
-                                                <p className="font-black text-xl text-[#FF6600] italic">{item.price * item.quantity}€</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Features Banner */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div className="bg-white p-6 border border-gray-100 flex items-center gap-4">
-                                <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center text-[#0051B5]">
-                                    <Truck size={20} />
-                                </div>
-                                <span className="text-[10px] font-black uppercase tracking-tight">Envío Express <br /><span className="text-gray-300">24/48 Horas</span></span>
-                            </div>
-                            <div className="bg-white p-6 border border-gray-100 flex items-center gap-4">
-                                <div className="w-10 h-10 bg-green-50 rounded-full flex items-center justify-center text-green-600">
-                                    <ShieldCheck size={20} />
-                                </div>
-                                <span className="text-[10px] font-black uppercase tracking-tight">Pago Seguro <br /><span className="text-gray-300">Encriptación SSL</span></span>
-                            </div>
-                            <div className="bg-white p-6 border border-gray-100 flex items-center gap-4">
-                                <div className="w-10 h-10 bg-orange-50 rounded-full flex items-center justify-center text-[#FF6600]">
-                                    <CreditCard size={20} />
-                                </div>
-                                <span className="text-[10px] font-black uppercase tracking-tight">Garantía Oficial <br /><span className="text-gray-300">2 Años de Fábrica</span></span>
-                            </div>
+                                            </td>
+                                            <td className="py-6 text-right font-bold text-[#003366]">
+                                                {item.price * item.quantity}€
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                                <tfoot className="divide-y divide-gray-100 bg-gray-50/30">
+                                    <tr>
+                                        <td className="py-4 px-2 font-bold text-gray-500 uppercase text-[10px] tracking-widest">{dict.subtotal}</td>
+                                        <td className="py-4 px-2 text-right font-bold text-[#003366]">{getTotalPrice()}€</td>
+                                    </tr>
+                                    <tr>
+                                        <td className="py-4 px-2 font-bold text-gray-500 uppercase text-[10px] tracking-widest">{dict.shipping}</td>
+                                        <td className="py-4 px-2 text-right font-bold text-gray-500 italic">{dict.shipping_method}</td>
+                                    </tr>
+                                    <tr className="bg-white border-t border-gray-100">
+                                        <td className="py-6 px-2 text-lg font-black text-[#003366] uppercase tracking-tighter italic">{dict.total}</td>
+                                        <td className="py-6 px-2 text-right text-2xl font-black text-[#FF6600] italic">{getTotalPrice() + shippingCost}€</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
                         </div>
                     </div>
 
-                    {/* Sidebar Summary */}
-                    <div className="lg:w-[400px] shrink-0">
-                        <div className="bg-[#003366] p-8 text-white sticky top-8">
-                            <h2 className="text-xs font-black uppercase tracking-[0.2em] mb-10 pb-4 border-b border-white/10">
-                                {dict.total}
-                            </h2>
-                            <div className="space-y-4 mb-10">
-                                <div className="flex justify-between text-[11px] font-bold uppercase tracking-widest opacity-60">
-                                    <span>{dict.subtotal}</span>
-                                    <span>{getTotalPrice()}€</span>
-                                </div>
-                                <div className="flex justify-between text-[11px] font-bold uppercase tracking-widest opacity-60">
-                                    <span>{dict.shipping}</span>
-                                    <span className="text-green-400 font-black">{dict.free}</span>
-                                </div>
-                                <div className="pt-6 border-t border-white/10 flex justify-between items-baseline">
-                                    <span className="text-xs font-black uppercase tracking-[0.2em]">{dict.total}</span>
-                                    <span className="text-4xl font-black italic text-[#FF6600]">{getTotalPrice()}€</span>
-                                </div>
+                    {/* Payment Method Selector */}
+                    <div className="bg-white p-8 shadow-sm border border-gray-100">
+                        <div className="space-y-4">
+                            {/* Bank Transfer */}
+                            <div className={`border border-gray-100 rounded-lg overflow-hidden transition-all ${paymentMethod === 'bank' ? 'ring-1 ring-[#0051B5] border-transparent' : ''}`}>
+                                <label className="flex items-start gap-4 p-4 cursor-pointer hover:bg-gray-50">
+                                    <input
+                                        type="radio"
+                                        name="paymentMethod"
+                                        checked={paymentMethod === 'bank'}
+                                        onChange={() => setPaymentMethod('bank')}
+                                        className="mt-1 accent-[#0051B5]"
+                                    />
+                                    <div className="flex-grow">
+                                        <span className="block font-bold text-sm text-[#003366] uppercase tracking-wider">{dict.payment_methods.bank}</span>
+                                        {paymentMethod === 'bank' && (
+                                            <div className="mt-4 p-4 bg-gray-50 text-xs text-gray-500 leading-relaxed rounded border-t border-gray-100">
+                                                {dict.payment_methods.bank_desc}
+                                            </div>
+                                        )}
+                                    </div>
+                                </label>
                             </div>
+
+                            {/* PayPal */}
+                            <div className={`border border-gray-100 rounded-lg overflow-hidden transition-all ${paymentMethod === 'paypal' ? 'ring-1 ring-[#0051B5] border-transparent' : ''}`}>
+                                <label className="flex items-center gap-4 p-4 cursor-pointer hover:bg-gray-50">
+                                    <input
+                                        type="radio"
+                                        name="paymentMethod"
+                                        checked={paymentMethod === 'paypal'}
+                                        onChange={() => setPaymentMethod('paypal')}
+                                        className="accent-[#0051B5]"
+                                    />
+                                    <div className="flex items-center gap-2 flex-grow">
+                                        <span className="font-bold text-sm text-[#003366] uppercase tracking-wider">{dict.payment_methods.paypal}</span>
+                                        <img src="https://www.paypalobjects.com/webstatic/mktg/logo/pp_cc_mark_37x23.jpg" alt="PayPal" className="h-4" />
+                                    </div>
+                                </label>
+                            </div>
+
+                            {/* Card */}
+                            <div className={`border border-gray-100 rounded-lg overflow-hidden transition-all ${paymentMethod === 'card' ? 'ring-1 ring-[#0051B5] border-transparent' : ''}`}>
+                                <label className="flex items-center gap-4 p-4 cursor-pointer hover:bg-gray-50">
+                                    <input
+                                        type="radio"
+                                        name="paymentMethod"
+                                        checked={paymentMethod === 'card'}
+                                        onChange={() => setPaymentMethod('card')}
+                                        className="accent-[#0051B5]"
+                                    />
+                                    <div className="flex items-center gap-2 flex-grow">
+                                        <span className="font-bold text-sm text-[#003366] uppercase tracking-wider">{dict.payment_methods.card}</span>
+                                        <div className="flex gap-1 ml-2">
+                                            <img src="https://www.thegymcity.com/wp-content/uploads/2018/11/visa-mastercard-icon.png" alt="Visa/Mastercard" className="h-4 opacity-70" />
+                                        </div>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div className="mt-8 pt-8 border-t border-gray-100">
+                            <p className="text-[10px] text-gray-400 font-medium leading-relaxed mb-8">
+                                {dict.legal_notice}
+                            </p>
 
                             <button
                                 form="checkout-form"
                                 type="submit"
                                 disabled={isLoading || !!paymentData}
-                                className="w-full bg-[#FF6600] text-white font-black py-4 text-xs uppercase tracking-widest hover:bg-white hover:text-[#003366] transition-all flex items-center justify-center gap-3 italic disabled:opacity-50"
+                                className="w-full bg-[#0051B5] text-white font-black py-5 text-sm uppercase tracking-[0.2em] hover:bg-[#003366] transition-all flex items-center justify-center gap-3 italic shadow-xl shadow-blue-900/10 disabled:opacity-50"
                             >
                                 {isLoading || paymentData ? (
                                     <span className="animate-pulse">{paymentData ? 'Redirigiendo...' : dict.processing}</span>
                                 ) : (
                                     <>
-                                        <CreditCard size={16} />
-                                        {dict.checkout}
+                                        {paymentMethod === 'card' && <CreditCard size={18} />}
+                                        {dict.place_order}
                                     </>
                                 )}
                             </button>
+                        </div>
+                    </div>
 
-                            <p className="mt-6 text-center text-[9px] font-bold uppercase tracking-widest opacity-40 leading-relaxed">
-                                {dict.taxes}
-                            </p>
+                    {/* Features Banner */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="bg-white p-6 border border-gray-100 flex items-center gap-4">
+                            <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center text-[#0051B5]">
+                                <Truck size={20} />
+                            </div>
+                            <span className="text-[10px] font-black uppercase tracking-tight">Envío Express <br /><span className="text-gray-300">24/48 Horas</span></span>
+                        </div>
+                        <div className="bg-white p-6 border border-gray-100 flex items-center gap-4">
+                            <div className="w-10 h-10 bg-green-50 rounded-full flex items-center justify-center text-green-600">
+                                <ShieldCheck size={20} />
+                            </div>
+                            <span className="text-[10px] font-black uppercase tracking-tight">Pago Seguro <br /><span className="text-gray-300">Encriptación SSL</span></span>
+                        </div>
+                        <div className="bg-white p-6 border border-gray-100 flex items-center gap-4">
+                            <div className="w-10 h-10 bg-orange-50 rounded-full flex items-center justify-center text-[#FF6600]">
+                                <CreditCard size={20} />
+                            </div>
+                            <span className="text-[10px] font-black uppercase tracking-tight">Garantía Oficial <br /><span className="text-gray-300">2 Años de Fábrica</span></span>
                         </div>
                     </div>
                 </div>

@@ -387,6 +387,16 @@ model UserProfile {
   latitude        Float?
   longitude       Float?
   locationName    String?
+
+  // Shipping Information
+  firstName       String?
+  lastName        String?
+  addressLine1    String?
+  addressLine2    String?
+  city            String?
+  postalCode      String?
+  country         String    @default("ES")
+  phone           String?
   
   user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   
